@@ -53,3 +53,15 @@ This will:
 Then open:
 
 - http://localhost:8080/static/index.html
+
+
+## Tests
+
+Run the FastAPI tests locally with:
+
+```bash
+pip install -r requirements.txt pytest
+pytest -q
+```
+
+A GitHub Actions workflow (`.github/workflows/tests.yml`) is included to run the test suite on each push and pull request.
