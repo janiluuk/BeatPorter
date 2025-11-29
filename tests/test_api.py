@@ -1,9 +1,8 @@
 import os
 import sys
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import io
 from fastapi.testclient import TestClient
 
 from backend.app.main import app
@@ -70,6 +69,24 @@ def test_generate_smart_playlist_and_use_playlist_scope():
     assert len(tracks) == data["track_count"]
 
 
+def test_generate_playlist_no_matches_still_behaves():
+    library_id, _ = _import_m3u_library()
+
+    # Keyword that does not match anything, but library has tracks.
+    resp = client.post(
+        f"/api/library/{library_id}/generate_playlist",
+        params={"target_minutes": 5, "keyword": "zzzz_unlikely"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    # Either we get at least 1 fallback track or 0 tracks; both are valid,
+    # but the API must respond 200 and contain required fields.
+    assert "playlist_id" in data
+    assert "name" in data
+    assert "track_count" in data
+    assert "approx_duration_minutes" in data
+
+
 def test_path_rewrite_preview_and_apply():
     library_id, _ = _import_m3u_library()
 
@@ -96,6 +113,18 @@ def test_path_rewrite_preview_and_apply():
     tracks = resp.json()
     for t in tracks:
         assert "/music" in (t["file_path"] or "")
+
+
+def test_path_rewrite_preview_no_matches():
+    library_id, _ = _import_m3u_library()
+
+    payload = {"search": "Z:/does/not/exist", "replace": "/music"}
+    resp = client.post(f"/api/library/{library_id}/preview_rewrite_paths", json=payload)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total_tracks"] == 2
+    assert data["affected_tracks"] == 0
+    assert data["examples"] == []
 
 
 def test_export_formats_from_m3u():
@@ -137,6 +166,17 @@ def test_export_formats_from_m3u():
     xml = resp.content.decode()
     assert "<NML" in xml
     assert "<COLLECTION" in xml
+
+
+def test_export_invalid_format_returns_400():
+    library_id, _ = _import_m3u_library()
+    resp = client.post(
+        f"/api/library/{library_id}/export",
+        params={"format": "foobar"},
+    )
+    assert resp.status_code == 400
+    data = resp.json()
+    assert "Unsupported export format" in data["detail"]
 
 
 def test_import_rekordbox_xml_detection_and_playlist():
@@ -198,3 +238,41 @@ def test_import_traktor_nml_detection():
     assert data["source_format"] == "traktor_nml"
     assert data["track_count"] == 1
     assert data["playlist_count"] >= 1
+
+
+def test_import_unknown_format_returns_400():
+    # A random .txt-like content that shouldn't match known formats
+    blob = "Just some noise, not a playlist".encode()
+    files = {"file": ("random.txt", blob, "text/plain")}
+    resp = client.post("/api/import", files=files)
+    assert resp.status_code == 400
+    data = resp.json()
+    assert "Could not detect format" in data["detail"]
+
+
+def test_access_missing_library_and_playlist():
+    # library that does not exist
+    resp = client.get("/api/library/does-not-exist")
+    assert resp.status_code == 404
+
+    # missing library on tracks
+    resp = client.get("/api/library/missing/tracks")
+    assert resp.status_code == 404
+
+    # missing library on export
+    resp = client.post("/api/library/missing/export", params={"format": "m3u"})
+    assert resp.status_code == 404
+
+    # create real library and then query missing playlist id
+    library_id, _ = _import_m3u_library()
+    resp = client.get(
+        f"/api/library/{library_id}/tracks",
+        params={"playlist_id": "nope"},
+    )
+    assert resp.status_code == 404
+
+    resp = client.post(
+        f"/api/library/{library_id}/export",
+        params={"format": "m3u", "playlist_id": "nope"},
+    )
+    assert resp.status_code == 404
