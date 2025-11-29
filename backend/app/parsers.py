@@ -1,16 +1,12 @@
 
+from __future__ import annotations
+from typing import Tuple, List, Dict
+from .models import Library, Track
+import uuid
+import xml.etree.ElementTree as ET
 import csv
 import io
-from typing import List, Tuple
-from xml.etree import ElementTree as ET
 
-from .models import Track, Playlist
-
-def _next_id():
-    i = 1
-    while True:
-        yield i
-        i += 1
 
 def detect_format(filename: str, content: bytes) -> str:
     lower = (filename or "").lower()
@@ -27,16 +23,15 @@ def detect_format(filename: str, content: bytes) -> str:
     if lower.endswith(".nml"):
         return "traktor"
     if lower.endswith(".csv"):
-        # Be stricter for CSV: require a header row that looks like a DJ library export,
-        # not just "has a comma".
-        first_line = text.splitlines()[0].strip() if text.splitlines() else ""
+        # Be stricter for CSV: require a header row that looks like a DJ library export
+        lines = text.splitlines()
+        first_line = lines[0].strip() if lines else ""
         header_candidates = ["Title", "Artist", "File", "Key", "BPM"]
         if any(col in first_line for col in header_candidates):
             return "serato"
-        # Unknown CSV-ish file → treat as unknown to avoid false-positives
         return "unknown"
 
-    # Content-based hints (fallbacks)
+    # Content-based hints
     if "#EXTM3U" in text:
         return "m3u"
     if "<DJ_PLAYLISTS" in text:
@@ -44,7 +39,7 @@ def detect_format(filename: str, content: bytes) -> str:
     if "<NML" in text:
         return "traktor"
 
-    # Very loose CSV heuristic as last resort: header with typical fields
+    # Very loose CSV heuristic as last resort
     lines = text.splitlines()
     if lines:
         first_line = lines[0].strip()
@@ -53,204 +48,208 @@ def detect_format(filename: str, content: bytes) -> str:
             return "serato"
 
     return "unknown"
-def parse_m3u(content: bytes) -> Tuple[List[Track], List[Playlist], str]:
+
+
+def parse_m3u(filename: str, content: bytes) -> Tuple[Library, Dict]:
     text = content.decode(errors="ignore")
-    lines = text.splitlines()
-    gen_id = _next_id()
-    tracks: List[Track] = []
-    current_duration = None
-    current_title = None
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    lib = Library(id=str(uuid.uuid4()), name=filename)
+    current_title_artist = ("", "")
+    duration = None
+    playlist_track_ids: List[str] = []
 
     for line in lines:
-        line = line.strip()
-        if not line or line.startswith("#EXTM3U"):
-            continue
         if line.startswith("#EXTINF:"):
+            # #EXTINF:300,Artist - Title
             try:
-                _, meta = line.split(":", 1)
-                dur_str, info = meta.split(",", 1)
-                current_duration = int(float(dur_str))
-                current_title = info.strip()
-            except ValueError:
-                current_duration = None
-                current_title = None
-            continue
-        file_path = line
-        t_id = next(gen_id)
-        title = current_title
-        artist = None
-        if title and " - " in title:
-            artist, title = title.split(" - ", 1)
-        tracks.append(Track(
-            id=t_id,
-            title=title,
-            artist=artist,
-            file_path=file_path,
-            duration_sec=current_duration,
-        ))
-        current_duration = None
-        current_title = None
-
-    playlist = Playlist(id="pl1", name="M3U Playlist", track_ids=[t.id for t in tracks])
-    return tracks, [playlist], "m3u"
-
-def parse_rekordbox_xml(content: bytes) -> Tuple[List[Track], List[Playlist], str]:
-    text = content.decode(errors="ignore")
-    root = ET.fromstring(text)
-    collection = root.find(".//COLLECTION")
-    gen_id = _next_id()
-    tracks: List[Track] = []
-    rb_id_to_track_id = {}
-
-    if collection is not None:
-        for tr in collection.findall("TRACK"):
-            t_id = next(gen_id)
-            name = tr.get("Name") or tr.get("TITLE")
-            artist = tr.get("Artist") or tr.get("ARTIST")
-            loc = tr.get("Location")
-            key = tr.get("Tonality")
-            bpm = tr.get("AverageBpm") or tr.get("BPM")
-            year = tr.get("Year")
-            dur = tr.get("TotalTime")
-            try:
-                bpm_val = float(bpm) if bpm else None
-            except ValueError:
-                bpm_val = None
-            try:
-                year_val = int(year) if year else None
-            except ValueError:
-                year_val = None
-            try:
-                dur_val = int(dur) if dur else None
-            except ValueError:
-                dur_val = None
-            tracks.append(Track(
-                id=t_id,
-                title=name,
+                meta = line.split(":", 1)[1]
+                dur_str, rest = meta.split(",", 1)
+                duration = int(float(dur_str))
+                if " - " in rest:
+                    artist, title = rest.split(" - ", 1)
+                else:
+                    artist, title = "", rest
+                current_title_artist = (title.strip(), artist.strip())
+            except Exception:
+                current_title_artist = ("", "")
+                duration = None
+        elif not line.startswith("#"):
+            file_path = line
+            title, artist = current_title_artist
+            tid = str(uuid.uuid4())
+            track = Track(
+                id=tid,
+                title=title or file_path.split("/")[-1],
                 artist=artist,
-                file_path=loc,
-                key=key,
-                bpm=bpm_val,
-                year=year_val,
-                duration_sec=dur_val,
-            ))
-            rb_id_to_track_id[tr.get("TrackID") or tr.get("TrackId") or str(t_id)] = t_id
+                file_path=file_path,
+                duration_seconds=duration or 300,
+            )
+            lib.add_track(track)
+            playlist_track_ids.append(tid)
 
-    playlists: List[Playlist] = []
-    playlists_root = root.find(".//PLAYLISTS")
-    if playlists_root is not None:
-        for node in playlists_root.findall(".//NODE"):
-            if node.get("Type") == "1":
-                name = node.get("Name") or "Playlist"
-                ids = []
-                for track in node.findall(".//TRACK"):
-                    key = track.get("Key") or track.get("TrackID")
-                    if key in rb_id_to_track_id:
-                        ids.append(rb_id_to_track_id[key])
-                if ids:
-                    playlists.append(Playlist(id=f"pl_{len(playlists)+1}", name=name, track_ids=ids))
+    # Single default playlist
+    if playlist_track_ids:
+        lib.add_playlist("Imported", playlist_track_ids)
 
-    if not playlists:
-        playlists = [Playlist(id="pl1", name="Rekordbox Collection", track_ids=[t.id for t in tracks])]
+    meta = {
+        "source_format": "m3u",
+        "track_count": len(lib.tracks),
+        "playlist_count": len(lib.playlists),
+    }
+    return lib, meta
 
-    return tracks, playlists, "rekordbox_xml"
 
-def parse_serato_csv(content: bytes) -> Tuple[List[Track], List[Playlist], str]:
+def parse_serato_csv(filename: str, content: bytes) -> Tuple[Library, Dict]:
     text = content.decode(errors="ignore")
     reader = csv.DictReader(io.StringIO(text))
-    gen_id = _next_id()
-    tracks: List[Track] = []
+    lib = Library(id=str(uuid.uuid4()), name=filename)
+    playlist_ids: List[str] = []
+
     for row in reader:
-        title = row.get("Title") or row.get("Name") or row.get("Song")
-        artist = row.get("Artist")
-        file_path = row.get("File") or row.get("Location") or row.get("Filename")
-        key = row.get("Key")
-        bpm = row.get("BPM") or row.get("Tempo")
-        year = row.get("Year") or row.get("Release Year")
-        try:
-            bpm_val = float(bpm) if bpm else None
-        except ValueError:
-            bpm_val = None
-        try:
-            year_val = int(year) if year else None
-        except ValueError:
-            year_val = None
-        t_id = next(gen_id)
-        tracks.append(Track(
-            id=t_id,
+        title = row.get("Title", "") or ""
+        artist = row.get("Artist", "") or ""
+        file_path = row.get("File", "") or ""
+        key = row.get("Key", "") or ""
+        bpm = row.get("BPM") or None
+        year = row.get("Year") or None
+        tid = str(uuid.uuid4())
+        track = Track(
+            id=tid,
             title=title,
             artist=artist,
             file_path=file_path,
             key=key,
-            bpm=bpm_val,
-            year=year_val,
-        ))
-    playlist = Playlist(id="pl1", name="Serato Playlist", track_ids=[t.id for t in tracks])
-    return tracks, [playlist], "serato_csv"
+            bpm=float(bpm) if bpm else None,
+            year=int(year) if year else None,
+            duration_seconds=300,
+        )
+        lib.add_track(track)
+        playlist_ids.append(tid)
 
-def parse_traktor_nml(content: bytes) -> Tuple[List[Track], List[Playlist], str]:
+    if playlist_ids:
+        lib.add_playlist("Imported", playlist_ids)
+
+    meta = {
+        "source_format": "serato_csv",
+        "track_count": len(lib.tracks),
+        "playlist_count": len(lib.playlists),
+    }
+    return lib, meta
+
+
+def parse_rekordbox_xml(filename: str, content: bytes) -> Tuple[Library, Dict]:
     text = content.decode(errors="ignore")
     root = ET.fromstring(text)
-    collection = root.find(".//COLLECTION")
-    gen_id = _next_id()
-    tracks: List[Track] = []
-    nml_id_to_track_id = {}
+    lib = Library(id=str(uuid.uuid4()), name=filename)
+    id_to_trackid: Dict[str, str] = {}
 
+    collection = root.find(".//COLLECTION")
     if collection is not None:
-        for entry in collection.findall("ENTRY"):
-            t_id = next(gen_id)
-            title = entry.get("TITLE")
-            artist = entry.get("ARTIST")
-            info = entry.find("INFO")
-            bpm_val = None
-            key = None
-            year_val = None
-            if info is not None:
-                bpm = info.get("BPM")
-                key = info.get("MUSICAL_KEY")
-                year = info.get("RELEASE_DATE")
-                try:
-                    bpm_val = float(bpm) if bpm else None
-                except ValueError:
-                    bpm_val = None
-                try:
-                    if year and len(year) >= 4:
-                        year_val = int(year[:4])
-                except ValueError:
-                    year_val = None
-            loc = entry.find("LOCATION")
-            file_path = None
-            if loc is not None:
-                directory = loc.get("DIR") or ""
-                file_name = loc.get("FILE") or ""
-                file_path = directory + file_name
-            tr = Track(
-                id=t_id,
+        for track_el in collection.findall("TRACK"):
+            track_id = track_el.get("TrackID") or str(uuid.uuid4())
+            title = track_el.get("Name", "") or ""
+            artist = track_el.get("Artist", "") or ""
+            loc = track_el.get("Location", "") or ""
+            bpm = track_el.get("AverageBpm") or None
+            year = track_el.get("Year") or None
+            key = track_el.get("Tonality") or ""
+            tid = str(uuid.uuid4())
+            track = Track(
+                id=tid,
                 title=title,
                 artist=artist,
-                file_path=file_path,
+                file_path=loc,
+                bpm=float(bpm) if bpm else None,
+                year=int(year) if year else None,
                 key=key,
-                bpm=bpm_val,
-                year=year_val,
+                duration_seconds=int(track_el.get("TotalTime") or 300),
             )
-            tracks.append(tr)
-            nml_id_to_track_id[entry.get("KEY") or str(t_id)] = t_id
+            lib.add_track(track)
+            id_to_trackid[track_id] = tid
 
-    playlists: List[Playlist] = []
+    playlist_count = 0
     playlists_root = root.find(".//PLAYLISTS")
     if playlists_root is not None:
         for node in playlists_root.findall(".//NODE"):
-            if node.get("TYPE") == "PLAYLIST" or node.get("Type") == "1":
-                name = node.get("NAME") or node.get("Name") or "Playlist"
-                ids = []
-                for entry in node.findall(".//ENTRY"):
-                    key = entry.get("KEY")
-                    if key in nml_id_to_track_id:
-                        ids.append(nml_id_to_track_id[key])
-                if ids:
-                    playlists.append(Playlist(id=f"pl_{len(playlists)+1}", name=name, track_ids=ids))
+            if node.get("Type") == "1":  # playlist
+                name = node.get("Name", "Playlist")
+                tids: List[str] = []
+                for track_ref in node.findall("TRACK"):
+                    key = track_ref.get("Key")
+                    if key and key in id_to_trackid:
+                        tids.append(id_to_trackid[key])
+                if tids:
+                    lib.add_playlist(name, tids)
+                    playlist_count += 1
 
-    if not playlists:
-        playlists = [Playlist(id="pl1", name="Traktor Collection", track_ids=[t.id for t in tracks])]
+    meta = {
+        "source_format": "rekordbox_xml",
+        "track_count": len(lib.tracks),
+        "playlist_count": playlist_count or len(lib.playlists),
+    }
+    return lib, meta
 
-    return tracks, playlists, "traktor_nml"
+
+def parse_traktor_nml(filename: str, content: bytes) -> Tuple[Library, Dict]:
+    text = content.decode(errors="ignore")
+    root = ET.fromstring(text)
+    lib = Library(id=str(uuid.uuid4()), name=filename)
+    id_to_trackid: Dict[str, str] = {}
+
+    collection = root.find(".//COLLECTION")
+    if collection is not None:
+        for entry in collection.findall("ENTRY"):
+            title = entry.get("TITLE", "") or ""
+            artist = entry.get("ARTIST", "") or ""
+            info = entry.find("INFO")
+            loc = entry.find("LOCATION")
+            bpm = info.get("BPM") if info is not None else None
+            key = info.get("MUSICAL_KEY") if info is not None else ""
+            year = None
+            if info is not None:
+                date = info.get("RELEASE_DATE")
+                if date and len(date) >= 4:
+                    try:
+                        year = int(date[:4])
+                    except ValueError:
+                        year = None
+            file_path = ""
+            if loc is not None:
+                directory = loc.get("DIR", "") or ""
+                file_name = loc.get("FILE", "") or ""
+                file_path = directory + file_name
+            tid = str(uuid.uuid4())
+            track = Track(
+                id=tid,
+                title=title,
+                artist=artist,
+                file_path=file_path,
+                bpm=float(bpm) if bpm else None,
+                year=year,
+                key=key,
+                duration_seconds=300,
+            )
+            lib.add_track(track)
+            id_to_trackid[entry.get("TITLE") or str(len(lib.tracks))] = tid
+
+    playlist_count = 0
+    playlists_root = root.find(".//PLAYLISTS")
+    if playlists_root is not None:
+        for node in playlists_root.findall(".//NODE"):
+            if node.get("TYPE", "").upper() == "PLAYLIST":
+                name = node.get("NAME", "Playlist")
+                tids: List[str] = []
+                for entry_ref in node.findall("ENTRY"):
+                    key = entry_ref.get("KEY")
+                    if key and key in id_to_trackid:
+                        tids.append(id_to_trackid[key])
+                if tids:
+                    lib.add_playlist(name, tids)
+                    playlist_count += 1
+
+    meta = {
+        "source_format": "traktor_nml",
+        "track_count": len(lib.tracks),
+        "playlist_count": playlist_count or len(lib.playlists),
+    }
+    return lib, meta

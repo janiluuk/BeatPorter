@@ -1,13 +1,12 @@
 
-version: "3.8"
+version: "3.9"
 
 services:
   beatporter:
     build: .
-    container_name: beatporter
     ports:
       - "8080:8080"
-    restart: unless-stopped
-    # Optional: mount your music library if you want consistent paths in playlists
-    # volumes:
-    #   - /path/to/your/music:/music
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app
