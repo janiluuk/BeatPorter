@@ -452,6 +452,7 @@ def get_metadata_issues(library_id: str):
     }
 
 
+
 @app.post("/api/library/{library_id}/metadata_auto_fix")
 def metadata_auto_fix(library_id: str, req: MetadataAutoFixRequest):
     lib = get_library_or_404(library_id)
@@ -480,6 +481,145 @@ def metadata_auto_fix(library_id: str, req: MetadataAutoFixRequest):
             changed += 1
 
     return {"changed_tracks": changed}
+
+
+@app.get("/api/library/{library_id}/stats")
+def get_library_stats(library_id: str):
+    """Return simple aggregate statistics about the library.
+
+    Designed for a small, clean UI card:
+    - total tracks / playlists
+    - BPM range + average (for tracks with BPM)
+    - year range
+    - key distribution
+    - top artists
+    - total duration approximation
+    """
+    lib = get_library_or_404(library_id)
+
+    track_count = len(lib.tracks)
+    playlist_count = len(lib.playlists)
+
+    bpms = [t.bpm for t in lib.tracks if getattr(t, "bpm", None) is not None]
+    years = [t.year for t in lib.tracks if getattr(t, "year", None) is not None]
+
+    bpm_min = min(bpms) if bpms else None
+    bpm_max = max(bpms) if bpms else None
+    bpm_avg = round(sum(bpms) / len(bpms), 1) if bpms else None
+
+    year_min = min(years) if years else None
+    year_max = max(years) if years else None
+
+    key_distribution: Dict[str, int] = {}
+    for t in lib.tracks:
+        key = (t.key or "").strip().upper()
+        if not key:
+            continue
+        key_distribution[key] = key_distribution.get(key, 0) + 1
+
+    artist_counts: Dict[str, int] = {}
+    for t in lib.tracks:
+        artist = (t.artist or "").strip()
+        if not artist:
+            continue
+        artist_counts[artist] = artist_counts.get(artist, 0) + 1
+
+    top_artists = sorted(
+        [{"artist": a, "count": c} for a, c in artist_counts.items()],
+        key=lambda x: (-x["count"], x["artist"]),
+    )[:10]
+
+    total_seconds = 0
+    default_duration = 300
+    for t in lib.tracks:
+        total_seconds += t.duration_seconds or default_duration
+
+    approx_total_minutes = int(round(total_seconds / 60)) if track_count > 0 else 0
+    approx_avg_minutes = (
+        round((total_seconds / track_count) / 60, 1) if track_count > 0 else None
+    )
+
+    return {
+        "track_count": track_count,
+        "playlist_count": playlist_count,
+        "bpm": {
+            "min": bpm_min,
+            "max": bpm_max,
+            "avg": bpm_avg,
+        },
+        "year": {
+            "min": year_min,
+            "max": year_max,
+        },
+        "keys": key_distribution,
+        "top_artists": top_artists,
+        "duration": {
+            "total_minutes": approx_total_minutes,
+            "avg_minutes": approx_avg_minutes,
+        },
+    }
+
+
+@app.get("/api/library/{library_id}/health")
+def get_library_health(library_id: str):
+    """Quick, non-destructive 'health check' for the library.
+
+    This is intentionally shallow: it only inspects metadata and paths.
+    It's meant to power a small 'Health' panel in the UI, not to be an
+    audio validator.
+
+    Flags:
+    - missing_file_path
+    - unknown_extension
+    - very_short_duration (< 30s)
+    - unusual_bpm (< 60 or > 200)
+    - unusual_year (< 1950 or > current_year + 1)
+    """
+    import datetime
+
+    lib = get_library_or_404(library_id)
+
+    issues: Dict[str, List[str]] = {
+        "missing_file_path": [],
+        "unknown_extension": [],
+        "very_short_duration": [],
+        "unusual_bpm": [],
+        "unusual_year": [],
+    }
+
+    current_year = datetime.datetime.utcnow().year
+    valid_exts = {".mp3", ".wav", ".aiff", ".aif", ".flac", ".m4a", ".ogg"}
+
+    for t in lib.tracks:
+        tid = t.id
+        path = t.file_path or ""
+        bpm = getattr(t, "bpm", None)
+        year = getattr(t, "year", None)
+        dur = getattr(t, "duration_seconds", None)
+
+        if not path:
+            issues["missing_file_path"].append(tid)
+        else:
+            lower = path.lower()
+            dot = lower.rfind(".")
+            ext = lower[dot:] if dot != -1 else ""
+            if ext and ext not in valid_exts:
+                issues["unknown_extension"].append(tid)
+
+        if dur is not None and dur < 30:
+            issues["very_short_duration"].append(tid)
+
+        if bpm is not None and (bpm < 60 or bpm > 200):
+            issues["unusual_bpm"].append(tid)
+
+        if year is not None and (year < 1950 or year > current_year + 1):
+            issues["unusual_year"].append(tid)
+
+    return {
+        "total_tracks": len(lib.tracks),
+        "issues": issues,
+    }
+
 
 
 class SmartPlaylistParams(BaseModel):

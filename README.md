@@ -1,354 +1,347 @@
 
-# BeatPorter v0.6
+# BeatPorter
 
-BeatPorter is a tiny webapp + API that lets you throw your chaotic DJ playlists at it and get something clean, portable and usable back.
+BeatPorter is a tiny web app + API that takes the chaos of DJ library files
+and turns it into something clean, searchable, and portable.
 
-Drag in:
-- Rekordbox XML
-- Serato CSV
-- Traktor NML
-- M3U playlists
+Drag in a playlist file and BeatPorter will:
+- detect its format (Rekordbox, Serato, Traktor, M3U),
+- parse tracks + playlists into a neutral in‑memory library,
+- let you clean things up,
+- and export everything back out again in multiple formats.
 
-BeatPorter will:
-- Detect the format
-- Parse tracks + playlists into a neutral library
-- Let you clean, merge, and export that library in multiple formats.
+The focus is:
+- **simple web UI** you can run locally or in a small server,
+- **predictable API** that is easy to automate,
+- **no external database** – everything happens in memory per import.
 
+## What you can do with it
 
-## Features
+From a single import you can:
 
-### Core
+- 🔁 **Convert between formats**
+  - Import Rekordbox XML, Serato CSV, Traktor NML, or M3U
+  - Export as M3U / Serato CSV / Rekordbox XML / Traktor NML
+  - Or download a **multi‑format bundle** in one ZIP
 
-- **Format detection & import**
-  - Auto-detects M3U, Rekordbox XML, Serato CSV, Traktor NML.
-  - Normalizes everything into an in-memory `Library` (tracks + playlists).
+- 🧹 **Clean up your library**
+  - Find duplicate tracks (title + artist + filename heuristics)
+  - Detect broken / suspicious metadata
+    - empty titles / artists
+    - missing / suspicious BPM values
+    - missing years, missing file paths
+  - Apply safe, mechanical fixes:
+    - trim whitespace
+    - normalize key casing (8a → 8A)
+    - convert `year = 0` to `null`
+  - Run a quick **health check**:
+    - missing or odd file paths
+    - obviously non‑audio extensions
+    - very short durations (< 30s)
+    - unusual BPM (< 60 or > 200)
+    - unusual year (< 1950 or in the far future)
 
-- **Track listing**
-  - `GET /api/library/{id}/tracks`
-  - Filter by search term `q` and/or `playlist_id`.
+- 🎛 **Build DJ‑friendly playlists**
+  - Generate a simple “2h of techno from 1995–2015” style set:
+    - filter by BPM range, year range, keys, keyword
+    - control approximate total length (in minutes)
+    - choose sort order (BPM / year / key / random)
+  - Merge multiple playlists into one combined list
 
-- **Export in multiple formats**
-  - `POST /api/library/{id}/export?format=m3u|serato|rekordbox|traktor`
-  - Export whole library or a single playlist.
+- 🔍 **Navigate a big library**
+  - Ask for suggested **transition candidates** from a given track:
+    - prefers same key
+    - keeps BPM within a configurable tolerance
+    - gracefully handles missing metadata
+  - Search by title / artist / file path and see:
+    - where each track lives (playlist usage)
+  - Get a fast **stats snapshot**:
+    - total tracks / playlists
+    - BPM range + average
+    - year range
+    - key distribution
+    - top artists
+    - approximate total playtime
 
-
-### Phase 1: Library brain upgrades
-
-#### 1. Duplicate Finder
-
-`GET /api/library/{id}/duplicates`
-
-- Groups potential duplicates by:
-  - Normalized **artist**
-  - Normalized **title**
-  - File name (case-insensitive)
-- Returns clusters like:
-  ```json
-  {
-    "total_groups": 1,
-    "duplicate_groups": [
-      {
-        "canonical_title": "First Track",
-        "canonical_artist": "Artist One",
-        "file_names": ["first.mp3", "FIRST_COPY.MP3"],
-        "track_ids": ["uuid-1", "uuid-2"],
-        "count": 2
-      }
-    ]
-  }
-  ```
-
-Use it as a **dup radar** before you start deleting things in your real library.
-
----
-
-#### 2. Metadata Cleanup Wizard
-
-- `GET /api/library/{id}/metadata_issues`  
-  Scans the library for:
-  - `missing_bpm`
-  - `missing_key`
-  - `missing_year`
-  - `missing_file_path`
-  - `suspicious_bpm` ( > 300 )
-  - `empty_title`
-  - `empty_artist`
-
-- `POST /api/library/{id}/metadata_auto_fix`
-  ```json
-  {
-    "normalize_whitespace": true,
-    "upper_case_keys": true,
-    "zero_year_to_null": true
-  }
-  ```
-
-Applies safe, mechanical fixes:
-- Trims title/artist/key
-- Uppercases key (8a → 8A)
-- Converts `year = 0` to `null`
-
-This is the “tidy up without doing anything musically opinionated” pass.
+The UI is intentionally minimal: a single dropzone, some buttons,
+and a live log of what the backend is doing. It’s meant to be quick to
+use in practice and easy to evolve.
 
 ---
 
-#### 3. Smart Playlist 2.0
+## Running the app
 
-`POST /api/library/{id}/generate_playlist_v2`
+### Option 1: Docker / docker compose
 
-Body:
+Prerequisites:
+- Docker
+- docker compose (v2)
+
+Clone the project and then:
+
+```bash
+docker compose up --build
+```
+
+This will:
+- build a small image with FastAPI + the static frontend,
+- expose the app on **http://localhost:8080**.
+
+Open that URL in your browser, drag a playlist file into the dropzone,
+and start playing with the tools.
+
+### Option 2: Local Python environment
+
+Prerequisites:
+- Python 3.11+
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Run the app:
+
+```bash
+uvicorn backend.app.main:app --reload --port 8080
+```
+
+Then open **http://localhost:8080** in your browser.
+
+---
+
+## API overview
+
+All endpoints are under `/api`.
+
+### Import a library
+
+```http
+POST /api/import
+Content-Type: multipart/form-data
+file: <playlist file>
+```
+
+Response:
 
 ```json
 {
-  "target_minutes": 120,
-  "keyword": "warehouse",
-  "min_bpm": 125,
-  "max_bpm": 135,
-  "min_year": 1995,
-  "max_year": 2015,
-  "keys": ["8A", "9A"],
-  "sort_by": "bpm",
-  "playlist_name": "Warehouse 1995–2015"
+  "library_id": "uuid",
+  "source_format": "rekordbox|serato|traktor|m3u",
+  "track_count": 123,
+  "playlist_count": 7
 }
 ```
 
-What it does:
+Internally the library is kept in memory under that `library_id` until
+the process is restarted.
 
-- Filters tracks by:
-  - Text keyword (title/artist/path)
-  - BPM range
-  - Year range
-  - Key whitelist
-- Sorts them by BPM / year / key / random.
-- Packs tracks until `target_minutes` is reached.
-- Creates a real playlist in the library and returns:
-  ```json
-  {
-    "playlist_id": "...",
-    "name": "Warehouse 1995–2015",
-    "track_count": 23,
-    "approx_duration_minutes": 121
-  }
-  ```
+### Inspect tracks
 
-This is the “build me a set skeleton” button.
-
----
-
-#### 4. Playlist Merge Tool
-
-`POST /api/library/{id}/merge_playlists`
-
-Body:
-
-```json
-{
-  "source_playlist_ids": ["p1", "p2", "p3"],
-  "name": "All-time Favourites",
-  "deduplicate": true
-}
+```http
+GET /api/library/{id}/tracks
 ```
 
-- Takes multiple playlists.
-- Flattens all their tracks.
-- Optionally deduplicates by track ID.
-- Creates a new playlist and returns:
-  ```json
-  {
-    "playlist_id": "new123",
-    "track_count": 45
-  }
-  ```
+Returns a flat list of tracks with basic metadata.
 
-This is perfect when you:
-- Inherit multiple old USB playlists.
-- Want one “mega crate” without manual drag-drop chaos.
+### Export to a single format
 
----
-
-## API Overview (Quick cheatsheet)
-
-- `POST /api/import`  
-  Upload a Rekordbox/Serato/Traktor/M3U file. Returns `library_id`.
-
-- `GET /api/library/{id}`  
-  Basic info: name, track_count, playlist_count.
-
-- `GET /api/library/{id}/tracks`  
-  Optional params: `playlist_id`, `q`.
-
-- `POST /api/library/{id}/generate_playlist`  
-  Simple “duration + keyword” playlist.
-
-- `POST /api/library/{id}/generate_playlist_v2`  
-  Advanced smart playlist with BPM/year/key filters.
-
-- `POST /api/library/{id}/preview_rewrite_paths`  
-  Show how many file paths would change when you replace a prefix.
-
-- `POST /api/library/{id}/apply_rewrite_paths`  
-  Actually apply the path change.
-
-- `POST /api/library/{id}/export?format=...`  
-  Export as m3u / serato / rekordbox / traktor.
-
-- `GET /api/library/{id}/duplicates`  
-  Find duplicate clusters.
-
-- `GET /api/library/{id}/metadata_issues`  
-  Scan for missing/suspicious metadata.
-
-- `POST /api/library/{id}/metadata_auto_fix`  
-  Auto-fix whitespace + key casing + zero-year.
-
-- `POST /api/library/{id}/merge_playlists`  
-  Merge multiple playlists into one.
-
----
-
-
-## Phase 2: Navigation & bundles (simple UI-friendly features)
-
-Phase 2 focuses on things you can expose in the UI as **one-click helpers**, not configuration nightmares.
-
-### 5. Transition Assistant
-
-`GET /api/library/{id}/transitions?from_track_id=...&bpm_tolerance=5&max_results=20`
-
-- Input: just the **track you’re currently playing** (its ID).
-- Output: a ranked list of suggested next tracks with:
-  - `bpm_diff`
-  - `key_match` (true/false)
-- Defaults are sane:
-  - `bpm_tolerance = 5` by default
-  - Max 20 results
-
-UI idea: a **single “Suggest next tracks” button** in the track detail view, no extra sliders needed.
-
----
-
-### 6. Global Search with usage
-
-`GET /api/library/{id}/search?q=warehouse`
-
-Returns:
-
-```json
-{
-  "query": "warehouse",
-  "results": [
-    {
-      "track": {
-        "id": "...",
-        "title": "Warehouse Anthem",
-        "artist": "Artist Two",
-        "file_path": "/music/...",
-        "bpm": 130,
-        "key": "8A",
-        "year": 2012
-      },
-      "playlists": [
-        { "id": "p1", "name": "Peak Time" },
-        { "id": "p9", "name": "Festival Set" }
-      ]
-    }
-  ]
-}
+```http
+POST /api/library/{id}/export?format=m3u|serato|rekordbox|traktor
 ```
 
-UI idea:
-- One global search bar.
-- Click a result → see “where does this track live?” as a small list of playlist badges.
+Returns a text body in the chosen format. Use this to save a new playlist
+back into your DJ software.
 
----
+### Export a multi‑format bundle
 
-### 7. Multi-format export bundle
+```http
+POST /api/library/{id}/export_bundle
+Content-Type: application/json
 
-`POST /api/library/{id}/export_bundle`
-
-Body:
-
-```json
 {
   "formats": ["m3u", "rekordbox", "traktor"],
   "playlist_id": null
 }
 ```
 
-- Produces a `.zip` with:
-  - `library.m3u`
-  - `library_rekordbox.xml`
-  - `library_traktor.nml`
-- If `playlist_id` is set, exports **just that playlist** instead of the whole library.
+Returns a `application/zip` containing e.g.:
 
-UI idea:
-- Simple “Export bundle” dialog:
-  - Checkbox list: [x] M3U [ ] Serato [x] Rekordbox [x] Traktor
-  - Optional playlist dropdown.
-  - One **Export** button.
+- `library.m3u`
+- `library_rekordbox.xml`
+- `library_traktor.nml`
 
-All three features are designed to map directly onto **small, focused UI widgets**:
-- No multi-step wizards.
-- No dense configuration panels.
-- Just “click → see helpful results”.
+If `playlist_id` is provided, only that playlist’s tracks are exported.
 
+### Duplicate finder
 
-## Running locally
-
-### With Python
-
-```bash
-python -m venv venv
-source venv/bin/activate  # or venv\Scripts\activate on Windows
-
-pip install -r requirements.txt
-
-PYTHONPATH=. uvicorn backend.app.main:app --reload --port 8080
+```http
+GET /api/library/{id}/duplicates
 ```
 
-Then open:
+Groups potential duplicates based on:
+- normalized artist,
+- normalized title,
+- filename (where available).
 
-- API docs: http://localhost:8080/docs
-- Minimal UI: http://localhost:8080/static/index.html (if served)
+Each group contains the list of track IDs and their core metadata.
 
-### With Docker
+### Metadata issues
 
-```bash
-docker compose up --build
+```http
+GET /api/library/{id}/metadata_issues
 ```
 
-App listens on `http://localhost:8080`.
+Returns:
+
+```json
+{
+  "total_tracks": 123,
+  "issues": {
+    "empty_title": ["track-id", "..."],
+    "empty_artist": ["track-id", "..."],
+    "missing_bpm": ["track-id", "..."],
+    "suspicious_bpm": ["track-id", "..."],
+    "missing_key": ["track-id", "..."],
+    "missing_year": ["track-id", "..."],
+    "missing_file_path": ["track-id", "..."]
+  }
+}
+```
+
+#### Auto‑fix helper
+
+```http
+POST /api/library/{id}/metadata_auto_fix
+Content-Type: application/json
+
+{
+  "normalize_whitespace": true,
+  "upper_case_keys": true,
+  "zero_year_to_null": true
+}
+```
+
+Applies safe, mechanical cleanup in‑place.
+
+### Path rewrite (for moved crates)
+
+Preview:
+
+```http
+POST /api/library/{id}/preview_rewrite_paths
+{
+  "search": "/old/disk/",
+  "replace": "/new/ssd/"
+}
+```
+
+Apply:
+
+```http
+POST /api/library/{id}/apply_rewrite_paths
+{
+  "search": "/old/disk/",
+  "replace": "/new/ssd/"
+}
+```
+
+### Smart playlist generator
+
+Version 2 endpoint:
+
+```http
+POST /api/library/{id}/generate_playlist_v2
+{
+  "target_minutes": 120,
+  "keyword": "techno",
+  "min_bpm": 120,
+  "max_bpm": 140,
+  "min_year": 1995,
+  "max_year": 2015,
+  "keys": ["8A", "9A"],
+  "sort_by": "bpm",
+  "playlist_name": "Techno 2h 1995–2015"
+}
+```
+
+Returns a new playlist object and the actual duration.
+
+### Playlist merge helper
+
+```http
+POST /api/library/{id}/merge_playlists
+{
+  "playlist_ids": ["id1", "id2"],
+  "name": "Combined crate"
+}
+```
+
+Creates a new playlist containing the unique union of tracks.
+
+### Transition assistant
+
+```http
+GET /api/library/{id}/transitions
+  ?from_track_id=<track-id>
+  &bpm_tolerance=5
+  &max_results=20
+```
+
+Returns a ranked list of candidate tracks, preferring:
+- same key,
+- BPM close to the source track,
+- stable sort so results feel deterministic.
+
+### Global search + usage
+
+```http
+GET /api/library/{id}/search?q=acid
+```
+
+Finds tracks by title / artist / file path and shows which playlists each
+track belongs to.
+
+### Library stats
+
+```http
+GET /api/library/{id}/stats
+```
+
+Aggregate snapshot as described above.
+
+### Library health
+
+```http
+GET /api/library/{id}/health
+```
+
+Light‑weight health report as described above.
 
 ---
 
-## Tests
+## Tests & CI
 
-There is a small but meaningful pytest suite:
+Tests are written with `pytest`.
 
-- `tests/test_api.py` – core import/export behaviours
-- `tests/test_phase1_duplicates.py` – duplicate finder
-- `tests/test_phase1_metadata.py` – metadata issues + auto-fix
-- `tests/test_phase1_smartplaylist.py` – smart playlist v2 filters
-- `tests/test_phase1_merge.py` – playlist merge / 404 behaviour
-
-Run them with:
+Run them locally with:
 
 ```bash
 PYTHONPATH=. pytest -q
 ```
 
-GitHub Actions CI is set up in `.github/workflows/tests.yml` to run this automatically on push/PR.
+The project also includes a GitHub Actions workflow in
+`.github/workflows/tests.yml` that runs the same command on each push /
+pull request.
+
+If you keep the structure intact, you can drop this folder into a repo,
+enable Actions, and immediately get simple CI for your BeatPorter
+instance.
 
 ---
 
-BeatPorter v0.5 is now a **DJ library Swiss army knife**:
-- it reads multiple ecosystems,
-- shows you the ugly parts (dups, broken metadata),
-- helps you clean them up,
-- and then spits out smart playlists and clean exports.
-
-Next steps (Phase 2) can layer on:
-- transition suggestions,
-- global search,
-- bundle exports,
-without touching the existing contract.
+BeatPorter is deliberately small and opinionated. It’s not trying to
+replace a full DJ library manager – it’s trying to sit on the side,
+be your neutral translator + janitor, and make it easier to move
+between ecosystems without losing your mind (or your crates).
