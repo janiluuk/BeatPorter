@@ -15,6 +15,7 @@ def _next_id():
 def detect_format(filename: str, content: bytes) -> str:
     lower = (filename or "").lower()
     text = content.decode(errors="ignore")
+    # Primary hints: file extension
     if lower.endswith(".m3u") or lower.endswith(".m3u8"):
         return "m3u"
     if lower.endswith(".xml"):
@@ -23,20 +24,35 @@ def detect_format(filename: str, content: bytes) -> str:
         if "<NML" in text:
             return "traktor"
         return "xml"
-    if lower.endswith(".csv"):
-        return "serato"
     if lower.endswith(".nml"):
         return "traktor"
+    if lower.endswith(".csv"):
+        # Be stricter for CSV: require a header row that looks like a DJ library export,
+        # not just "has a comma".
+        first_line = text.splitlines()[0].strip() if text.splitlines() else ""
+        header_candidates = ["Title", "Artist", "File", "Key", "BPM"]
+        if any(col in first_line for col in header_candidates):
+            return "serato"
+        # Unknown CSV-ish file → treat as unknown to avoid false-positives
+        return "unknown"
+
+    # Content-based hints (fallbacks)
     if "#EXTM3U" in text:
         return "m3u"
     if "<DJ_PLAYLISTS" in text:
         return "rekordbox"
     if "<NML" in text:
         return "traktor"
-    if text.splitlines() and "," in text.splitlines()[0]:
-        return "serato"
-    return "unknown"
 
+    # Very loose CSV heuristic as last resort: header with typical fields
+    lines = text.splitlines()
+    if lines:
+        first_line = lines[0].strip()
+        header_candidates = ["Title", "Artist", "File", "Key", "BPM"]
+        if "," in first_line and any(col in first_line for col in header_candidates):
+            return "serato"
+
+    return "unknown"
 def parse_m3u(content: bytes) -> Tuple[List[Track], List[Playlist], str]:
     text = content.decode(errors="ignore")
     lines = text.splitlines()
