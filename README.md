@@ -1,5 +1,5 @@
 
-# BeatPorter v0.5
+# BeatPorter v0.6
 
 BeatPorter is a tiny webapp + API that lets you throw your chaotic DJ playlists at it and get something clean, portable and usable back.
 
@@ -205,6 +205,93 @@ This is perfect when you:
   Merge multiple playlists into one.
 
 ---
+
+
+## Phase 2: Navigation & bundles (simple UI-friendly features)
+
+Phase 2 focuses on things you can expose in the UI as **one-click helpers**, not configuration nightmares.
+
+### 5. Transition Assistant
+
+`GET /api/library/{id}/transitions?from_track_id=...&bpm_tolerance=5&max_results=20`
+
+- Input: just the **track you’re currently playing** (its ID).
+- Output: a ranked list of suggested next tracks with:
+  - `bpm_diff`
+  - `key_match` (true/false)
+- Defaults are sane:
+  - `bpm_tolerance = 5` by default
+  - Max 20 results
+
+UI idea: a **single “Suggest next tracks” button** in the track detail view, no extra sliders needed.
+
+---
+
+### 6. Global Search with usage
+
+`GET /api/library/{id}/search?q=warehouse`
+
+Returns:
+
+```json
+{
+  "query": "warehouse",
+  "results": [
+    {
+      "track": {
+        "id": "...",
+        "title": "Warehouse Anthem",
+        "artist": "Artist Two",
+        "file_path": "/music/...",
+        "bpm": 130,
+        "key": "8A",
+        "year": 2012
+      },
+      "playlists": [
+        { "id": "p1", "name": "Peak Time" },
+        { "id": "p9", "name": "Festival Set" }
+      ]
+    }
+  ]
+}
+```
+
+UI idea:
+- One global search bar.
+- Click a result → see “where does this track live?” as a small list of playlist badges.
+
+---
+
+### 7. Multi-format export bundle
+
+`POST /api/library/{id}/export_bundle`
+
+Body:
+
+```json
+{
+  "formats": ["m3u", "rekordbox", "traktor"],
+  "playlist_id": null
+}
+```
+
+- Produces a `.zip` with:
+  - `library.m3u`
+  - `library_rekordbox.xml`
+  - `library_traktor.nml`
+- If `playlist_id` is set, exports **just that playlist** instead of the whole library.
+
+UI idea:
+- Simple “Export bundle” dialog:
+  - Checkbox list: [x] M3U [ ] Serato [x] Rekordbox [x] Traktor
+  - Optional playlist dropdown.
+  - One **Export** button.
+
+All three features are designed to map directly onto **small, focused UI widgets**:
+- No multi-step wizards.
+- No dense configuration panels.
+- Just “click → see helpful results”.
+
 
 ## Running locally
 

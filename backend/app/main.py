@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from .models import Library, Track
 from .parsers import detect_format, parse_m3u, parse_rekordbox_xml, parse_serato_csv, parse_traktor_nml
 
-app = FastAPI(title="BeatPorter v0.5")
+app = FastAPI(title="BeatPorter v0.6")
 
 LIBRARIES: Dict[str, Library] = {}
 
@@ -193,22 +193,9 @@ def apply_rewrite_paths(library_id: str, req: RewritePathsRequest):
     return {"changed_tracks": changed}
 
 
-@app.post("/api/library/{library_id}/export")
-def export_library(
-    library_id: str,
-    format: str = Query(..., alias="format"),
-    playlist_id: Optional[str] = None,
-):
-    lib = get_library_or_404(library_id)
-    tracks = lib.tracks
-    if playlist_id:
-        pl = lib.playlists.get(playlist_id)
-        if not pl:
-            raise HTTPException(status_code=404, detail="Playlist not found")
-        allowed = set(pl.track_ids)
-        tracks = [t for t in tracks if t.id in allowed]
 
-    fmt = format.lower()
+def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
+    fmt = fmt.lower()
     if fmt == "m3u":
         lines = ["#EXTM3U"]
         for t in tracks:
@@ -218,12 +205,12 @@ def export_library(
             path = t.file_path or ""
             lines.append(f"#EXTINF:{dur},{artist} - {title}")
             lines.append(path)
-        return PlainTextResponse("\n".join(lines))
+        return "\n".join(lines)
 
     if fmt == "serato":
         import csv
-        import io
-        output = io.StringIO()
+        import io as _io
+        output = _io.StringIO()
         writer = csv.writer(output)
         writer.writerow(["Title", "Artist", "File", "Key", "BPM", "Year"])
         for t in tracks:
@@ -237,10 +224,9 @@ def export_library(
                     t.year or "",
                 ]
             )
-        return PlainTextResponse(output.getvalue())
+        return output.getvalue()
 
     if fmt == "rekordbox":
-        # very minimal Rekordbox-like XML
         lines = [
             '<?xml version="1.0" encoding="UTF-8"?>',
             '<DJ_PLAYLISTS Version="1.0">',
@@ -263,7 +249,7 @@ def export_library(
         lines.append("    </NODE>")
         lines.append("  </PLAYLISTS>")
         lines.append("</DJ_PLAYLISTS>")
-        return PlainTextResponse("\n".join(lines))
+        return "\n".join(lines)
 
     if fmt == "traktor":
         lines = [
@@ -292,15 +278,79 @@ def export_library(
         lines.append("  <PLAYLISTS>")
         lines.append('    <NODE NAME="ROOT" TYPE="FOLDER">')
         lines.append('      <NODE NAME="Exported" TYPE="PLAYLIST">')
-        for i, t in enumerate(tracks, start=1):
+        for i, _t in enumerate(tracks, start=1):
             lines.append(f'        <ENTRY KEY="{i}" />')
         lines.append("      </NODE>")
         lines.append("    </NODE>")
         lines.append("  </PLAYLISTS>")
         lines.append("</NML>")
-        return PlainTextResponse("\n".join(lines))
+        return "\n".join(lines)
 
     raise HTTPException(status_code=400, detail="Unsupported export format")
+
+
+@app.post("/api/library/{library_id}/export")
+def export_library(
+    library_id: str,
+    format: str = Query(..., alias="format"),
+    playlist_id: Optional[str] = None,
+):
+    lib = get_library_or_404(library_id)
+    tracks = lib.tracks
+    if playlist_id:
+        pl = lib.playlists.get(playlist_id)
+        if not pl:
+            raise HTTPException(status_code=404, detail="Playlist not found")
+        allowed = set(pl.track_ids)
+        tracks = [t for t in tracks if t.id in allowed]
+
+    text = _render_export_tracks(tracks, format)
+    return PlainTextResponse(text)
+
+
+
+class ExportBundleRequest(BaseModel):
+    formats: List[str]
+    playlist_id: Optional[str] = None
+
+
+@app.post("/api/library/{library_id}/export_bundle")
+def export_bundle(library_id: str, body: ExportBundleRequest):
+    import io
+    import zipfile
+    from fastapi.responses import Response
+
+    lib = get_library_or_404(library_id)
+    tracks = lib.tracks
+    if body.playlist_id:
+        pl = lib.playlists.get(body.playlist_id)
+        if not pl:
+            raise HTTPException(status_code=404, detail="Playlist not found")
+        allowed = set(pl.track_ids)
+        tracks = [t for t in tracks if t.id in allowed]
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for fmt in body.formats:
+            text = _render_export_tracks(tracks, fmt)
+            f = fmt.lower()
+            if f == "m3u":
+                fname = "library.m3u"
+            elif f == "serato":
+                fname = "library_serato.csv"
+            elif f == "rekordbox":
+                fname = "library_rekordbox.xml"
+            elif f == "traktor":
+                fname = "library_traktor.nml"
+            else:
+                raise HTTPException(status_code=400, detail=f"Unsupported export format in bundle: {fmt}")
+            z.writestr(fname, text)
+
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="beatporter_export.zip"'},
+    )
 
 
 from collections import defaultdict
@@ -537,4 +587,129 @@ def merge_playlists(library_id: str, body: MergePlaylistsRequest):
     return {
         "playlist_id": new_id,
         "track_count": len(all_track_ids),
+    }
+
+
+@app.get("/api/library/{library_id}/transitions")
+def suggest_transitions(
+    library_id: str,
+    from_track_id: str,
+    bpm_tolerance: float = 5.0,
+    max_results: int = 20,
+):
+    """Suggest simple next tracks based on BPM + key proximity.
+
+    Kept intentionally simple for UI:
+    - Same key (case-insensitive) is preferred.
+    - BPM difference within `bpm_tolerance` if both tracks have BPM.
+    - Falls back gracefully if metadata is missing.
+    """
+    lib = get_library_or_404(library_id)
+    base = None
+    for t in lib.tracks:
+        if t.id == from_track_id:
+            base = t
+            break
+    if base is None:
+        raise HTTPException(status_code=404, detail="from_track not found")
+
+    base_bpm = base.bpm
+    base_key = (base.key or "").upper()
+
+    candidates: List[dict] = []
+    for t in lib.tracks:
+        if t.id == base.id:
+            continue
+        cand_bpm = t.bpm
+        cand_key = (t.key or "").upper()
+
+        bpm_diff = None
+        bpm_ok = True
+        if base_bpm is not None and cand_bpm is not None:
+            bpm_diff = abs(cand_bpm - base_bpm)
+            bpm_ok = bpm_diff <= bpm_tolerance
+
+        key_match = bool(base_key and cand_key and base_key == cand_key)
+
+        if not bpm_ok and not key_match:
+            # If we have both bpm and keys and both fail, skip
+            if base_bpm is not None and cand_bpm is not None and base_key and cand_key:
+                continue
+
+        candidates.append(
+            {
+                "id": t.id,
+                "title": t.title,
+                "artist": t.artist,
+                "bpm": t.bpm,
+                "key": t.key,
+                "year": t.year,
+                "bpm_diff": bpm_diff,
+                "key_match": key_match,
+            }
+        )
+
+    # Sort: key_match first, then bpm_diff (None goes last), then title
+    def sort_key(c):
+        return (
+            0 if c["key_match"] else 1,
+            9999 if c["bpm_diff"] is None else c["bpm_diff"],
+            c["title"] or "",
+        )
+
+    candidates.sort(key=sort_key)
+    if max_results > 0:
+        candidates = candidates[:max_results]
+
+    return {
+        "from_track": {
+            "id": base.id,
+            "title": base.title,
+            "artist": base.artist,
+            "bpm": base.bpm,
+            "key": base.key,
+            "year": base.year,
+        },
+        "candidates": candidates,
+    }
+
+
+@app.get("/api/library/{library_id}/search")
+def global_search(library_id: str, q: str):
+    """Search tracks in a library and show where they appear.
+
+    Returns track details plus the list of playlists where each track is used.
+    """
+    lib = get_library_or_404(library_id)
+    ql = q.lower()
+
+    # Precompute usage map: track_id -> list of (playlist_id, playlist_name)
+    usage: Dict[str, List[dict]] = {}
+    for pid, pl in lib.playlists.items():
+        for tid in pl.track_ids:
+            usage.setdefault(tid, []).append({"id": pid, "name": pl.name})
+
+    results: List[dict] = []
+    for t in lib.tracks:
+        hay = f"{t.title or ''} {t.artist or ''} {t.file_path or ''}".lower()
+        if ql not in hay:
+            continue
+        results.append(
+            {
+                "track": {
+                    "id": t.id,
+                    "title": t.title,
+                    "artist": t.artist,
+                    "file_path": t.file_path,
+                    "bpm": t.bpm,
+                    "key": t.key,
+                    "year": t.year,
+                },
+                "playlists": usage.get(t.id, []),
+            }
+        )
+
+    return {
+        "query": q,
+        "results": results,
     }
