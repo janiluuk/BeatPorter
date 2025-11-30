@@ -85,7 +85,7 @@ docker compose up --build
 
 This will:
 - build a small image with FastAPI + the static frontend,
-- expose the app on **http://localhost:8347**.
+- expose the app on **http://localhost:8080**.
 
 Open that URL in your browser, drag a playlist file into the dropzone,
 and start playing with the tools.
@@ -107,7 +107,7 @@ Run the app:
 uvicorn backend.app.main:app --reload --port 8080
 ```
 
-Then open **http://localhost:8347** in your browser.
+Then open **http://localhost:8080** in your browser.
 
 ---
 
