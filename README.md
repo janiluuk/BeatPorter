@@ -3,6 +3,7 @@
 
 BeatPorter is a tiny web app + API that takes the chaos of DJ library files
 and turns it into something clean, searchable, and portable.
+<img width="2722" height="1826" alt="Screenshot from 2025-11-30 19-55-17" src="https://github.com/user-attachments/assets/d5b45bcc-3ac7-4394-a9d7-a8dc6219b2f0" />
 
 Drag in a playlist file and BeatPorter will:
 - detect its format (Rekordbox, Serato, Traktor, M3U),
