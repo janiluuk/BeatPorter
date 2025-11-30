@@ -1,12 +1,12 @@
-
 version: "3.9"
 
 services:
   beatporter:
     build: .
     ports:
-      - "8080:8080"
+      - "8347:8347"
     volumes:
       - .:/app
     environment:
       - PYTHONPATH=/app
+      - PORT=8347

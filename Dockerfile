@@ -1,4 +1,3 @@
-
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -10,5 +9,7 @@ COPY backend ./backend
 COPY frontend ./frontend
 
 ENV PYTHONPATH=/app
+ENV PORT=8347
+EXPOSE 8347
 
-CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8347"]
