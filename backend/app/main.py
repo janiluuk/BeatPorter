@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -29,6 +29,12 @@ BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR.parent.parent / "frontend"
 if STATIC_DIR.is_dir():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")
+
+
+@app.get("/")
+def root():
+    """Redirect root to static frontend."""
+    return RedirectResponse(url="/static/", status_code=307)
 
 
 class ImportResponse(BaseModel):
