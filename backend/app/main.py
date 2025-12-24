@@ -268,6 +268,7 @@ def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
             bpm = t.bpm or ""
             key = t.key or ""
             year = t.year or ""
+            duration = t.duration_seconds or 300
             file_path = t.file_path or ""
             dir_part = ""
             file_name = file_path
@@ -276,7 +277,7 @@ def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
                 file_name = file_path.rsplit("/", 1)[1]
             lines.append(
                 f'    <ENTRY TITLE="{title}" ARTIST="{artist}">'
-                f'<INFO BPM="{bpm}" MUSICAL_KEY="{key}" RELEASE_DATE="{year}-01-01" />'
+                f'<INFO BPM="{bpm}" MUSICAL_KEY="{key}" RELEASE_DATE="{year}-01-01" PLAYTIME="{duration}" />'
                 f'<LOCATION DIR="{dir_part}" FILE="{file_name}" />'
                 f"</ENTRY>"
             )
@@ -284,8 +285,10 @@ def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
         lines.append("  <PLAYLISTS>")
         lines.append('    <NODE NAME="ROOT" TYPE="FOLDER">')
         lines.append('      <NODE NAME="Exported" TYPE="PLAYLIST">')
-        for i, _t in enumerate(tracks, start=1):
-            lines.append(f'        <ENTRY KEY="{i}" />')
+        # Use file_path as KEY to match what the parser expects
+        for t in tracks:
+            track_key = t.file_path if t.file_path else t.title
+            lines.append(f'        <ENTRY KEY="{track_key}" />')
         lines.append("      </NODE>")
         lines.append("    </NODE>")
         lines.append("  </PLAYLISTS>")

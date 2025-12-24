@@ -206,6 +206,7 @@ def parse_traktor_nml(filename: str, content: bytes) -> Tuple[Library, Dict]:
             bpm = info.get("BPM") if info is not None else None
             key = info.get("MUSICAL_KEY") if info is not None else ""
             year = None
+            duration_seconds = 300
             if info is not None:
                 date = info.get("RELEASE_DATE")
                 if date and len(date) >= 4:
@@ -213,6 +214,13 @@ def parse_traktor_nml(filename: str, content: bytes) -> Tuple[Library, Dict]:
                         year = int(date[:4])
                     except ValueError:
                         year = None
+                # Parse PLAYTIME field (in seconds)
+                playtime = info.get("PLAYTIME")
+                if playtime:
+                    try:
+                        duration_seconds = int(float(playtime))
+                    except (ValueError, TypeError):
+                        duration_seconds = 300
             file_path = ""
             if loc is not None:
                 directory = loc.get("DIR", "") or ""
@@ -227,10 +235,14 @@ def parse_traktor_nml(filename: str, content: bytes) -> Tuple[Library, Dict]:
                 bpm=float(bpm) if bpm else None,
                 year=year,
                 key=key,
-                duration_seconds=300,
+                duration_seconds=duration_seconds,
             )
             lib.add_track(track)
-            id_to_trackid[entry.get("TITLE") or str(len(lib.tracks))] = tid
+            # Use file_path as the key for playlist references (more reliable than TITLE)
+            # If file_path is empty, fall back to TITLE
+            track_key = file_path if file_path else title
+            if track_key:
+                id_to_trackid[track_key] = tid
 
     playlist_count = 0
     playlists_root = root.find(".//PLAYLISTS")
