@@ -10,7 +10,14 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .models import Library, Track
-from .parsers import detect_format, parse_m3u, parse_rekordbox_xml, parse_serato_csv, parse_traktor_nml
+from .parsers import (
+    detect_format, 
+    parse_m3u, 
+    parse_rekordbox_xml, 
+    parse_serato_csv, 
+    parse_traktor_nml,
+    DEFAULT_DURATION_SECONDS
+)
 
 app = FastAPI(title="BeatPorter v0.6")
 
@@ -139,7 +146,7 @@ def generate_playlist_v1(library_id: str, params: SmartPlaylistParamsV1):
     total_sec = 0
     selected: List[Track] = []
     for t in candidates:
-        dur = t.duration_seconds or 300
+        dur = t.duration_seconds or DEFAULT_DURATION_SECONDS
         if total_sec >= params.target_minutes * 60:
             break
         selected.append(t)
@@ -205,7 +212,7 @@ def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
     if fmt == "m3u":
         lines = ["#EXTM3U"]
         for t in tracks:
-            dur = t.duration_seconds or 300
+            dur = t.duration_seconds or DEFAULT_DURATION_SECONDS
             artist = t.artist or ""
             title = t.title or ""
             path = t.file_path or ""
@@ -243,7 +250,7 @@ def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
             lines.append(
                 f'    <TRACK TrackID="{i}" Name="{t.title}" Artist="{t.artist}" '
                 f'Location="{loc}" AverageBpm="{t.bpm or ""}" Year="{t.year or ""}" '
-                f'TotalTime="{t.duration_seconds or 300}" Tonality="{t.key or ""}" />'
+                f'TotalTime="{t.duration_seconds or DEFAULT_DURATION_SECONDS}" Tonality="{t.key or ""}" />'
             )
         lines.append("  </COLLECTION>")
         lines.append("  <PLAYLISTS>")
@@ -268,6 +275,7 @@ def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
             bpm = t.bpm or ""
             key = t.key or ""
             year = t.year or ""
+            duration = t.duration_seconds or DEFAULT_DURATION_SECONDS
             file_path = t.file_path or ""
             dir_part = ""
             file_name = file_path
@@ -276,7 +284,7 @@ def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
                 file_name = file_path.rsplit("/", 1)[1]
             lines.append(
                 f'    <ENTRY TITLE="{title}" ARTIST="{artist}">'
-                f'<INFO BPM="{bpm}" MUSICAL_KEY="{key}" RELEASE_DATE="{year}-01-01" />'
+                f'<INFO BPM="{bpm}" MUSICAL_KEY="{key}" RELEASE_DATE="{year}-01-01" PLAYTIME="{duration}" />'
                 f'<LOCATION DIR="{dir_part}" FILE="{file_name}" />'
                 f"</ENTRY>"
             )
@@ -284,8 +292,10 @@ def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
         lines.append("  <PLAYLISTS>")
         lines.append('    <NODE NAME="ROOT" TYPE="FOLDER">')
         lines.append('      <NODE NAME="Exported" TYPE="PLAYLIST">')
-        for i, _t in enumerate(tracks, start=1):
-            lines.append(f'        <ENTRY KEY="{i}" />')
+        # Use file_path as KEY to match what the parser expects
+        for t in tracks:
+            track_key = t.file_path if t.file_path else t.title
+            lines.append(f'        <ENTRY KEY="{track_key}" />')
         lines.append("      </NODE>")
         lines.append("    </NODE>")
         lines.append("  </PLAYLISTS>")
@@ -536,9 +546,8 @@ def get_library_stats(library_id: str):
     )[:10]
 
     total_seconds = 0
-    default_duration = 300
     for t in lib.tracks:
-        total_seconds += t.duration_seconds or default_duration
+        total_seconds += t.duration_seconds or DEFAULT_DURATION_SECONDS
 
     approx_total_minutes = int(round(total_seconds / 60)) if track_count > 0 else 0
     approx_avg_minutes = (
@@ -686,7 +695,7 @@ def generate_playlist_v2(library_id: str, params: SmartPlaylistParams):
     total_sec = 0
     selected: List[Track] = []
     for t in candidates:
-        dur = t.duration_seconds or 300
+        dur = t.duration_seconds or DEFAULT_DURATION_SECONDS
         if total_sec >= params.target_minutes * 60:
             break
         selected.append(t)
