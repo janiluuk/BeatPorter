@@ -7,6 +7,9 @@ import xml.etree.ElementTree as ET
 import csv
 import io
 
+# Default duration for tracks when not specified (5 minutes in seconds)
+DEFAULT_DURATION_SECONDS = 300
+
 
 def detect_format(filename: str, content: bytes) -> str:
     lower = (filename or "").lower()
@@ -82,7 +85,7 @@ def parse_m3u(filename: str, content: bytes) -> Tuple[Library, Dict]:
                 title=title or file_path.split("/")[-1],
                 artist=artist,
                 file_path=file_path,
-                duration_seconds=duration or 300,
+                duration_seconds=duration or DEFAULT_DURATION_SECONDS,
             )
             lib.add_track(track)
             playlist_track_ids.append(tid)
@@ -121,7 +124,7 @@ def parse_serato_csv(filename: str, content: bytes) -> Tuple[Library, Dict]:
             key=key,
             bpm=float(bpm) if bpm else None,
             year=int(year) if year else None,
-            duration_seconds=300,
+            duration_seconds=DEFAULT_DURATION_SECONDS,
         )
         lib.add_track(track)
         playlist_ids.append(tid)
@@ -162,7 +165,7 @@ def parse_rekordbox_xml(filename: str, content: bytes) -> Tuple[Library, Dict]:
                 bpm=float(bpm) if bpm else None,
                 year=int(year) if year else None,
                 key=key,
-                duration_seconds=int(track_el.get("TotalTime") or 300),
+                duration_seconds=int(track_el.get("TotalTime") or DEFAULT_DURATION_SECONDS),
             )
             lib.add_track(track)
             id_to_trackid[track_id] = tid
@@ -206,7 +209,7 @@ def parse_traktor_nml(filename: str, content: bytes) -> Tuple[Library, Dict]:
             bpm = info.get("BPM") if info is not None else None
             key = info.get("MUSICAL_KEY") if info is not None else ""
             year = None
-            duration_seconds = 300
+            duration_seconds = DEFAULT_DURATION_SECONDS
             if info is not None:
                 date = info.get("RELEASE_DATE")
                 if date and len(date) >= 4:
@@ -218,9 +221,13 @@ def parse_traktor_nml(filename: str, content: bytes) -> Tuple[Library, Dict]:
                 playtime = info.get("PLAYTIME")
                 if playtime:
                     try:
-                        duration_seconds = int(float(playtime))
+                        # Check if it's an integer or float
+                        if '.' in playtime:
+                            duration_seconds = int(float(playtime))
+                        else:
+                            duration_seconds = int(playtime)
                     except (ValueError, TypeError):
-                        duration_seconds = 300
+                        duration_seconds = DEFAULT_DURATION_SECONDS
             file_path = ""
             if loc is not None:
                 directory = loc.get("DIR", "") or ""
