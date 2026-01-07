@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 from typing import Dict, List, Optional
+import time
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from fastapi.responses import PlainTextResponse, RedirectResponse
@@ -21,13 +22,37 @@ from .parsers import (
 
 app = FastAPI(title="BeatPorter v0.6")
 
+# Track library access times for cleanup
 LIBRARIES: Dict[str, Library] = {}
+LIBRARY_ACCESS_TIMES: Dict[str, float] = {}
+LIBRARY_TTL_SECONDS = 3600 * 2  # 2 hours
+
+
+def _cleanup_old_libraries():
+    """Remove libraries that haven't been accessed recently."""
+    current_time = time.time()
+    to_remove = []
+    for lib_id, access_time in LIBRARY_ACCESS_TIMES.items():
+        if current_time - access_time > LIBRARY_TTL_SECONDS:
+            to_remove.append(lib_id)
+    
+    for lib_id in to_remove:
+        LIBRARIES.pop(lib_id, None)
+        LIBRARY_ACCESS_TIMES.pop(lib_id, None)
+    
+    return len(to_remove)
 
 
 def get_library_or_404(library_id: str) -> Library:
+    # Clean up old libraries before accessing
+    _cleanup_old_libraries()
+    
     lib = LIBRARIES.get(library_id)
     if not lib:
         raise HTTPException(status_code=404, detail="Library not found")
+    
+    # Update access time
+    LIBRARY_ACCESS_TIMES[library_id] = time.time()
     return lib
 
 
@@ -67,6 +92,7 @@ async def import_library(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Could not detect format")
 
     LIBRARIES[lib.id] = lib
+    LIBRARY_ACCESS_TIMES[lib.id] = time.time()
     return ImportResponse(
         library_id=lib.id,
         source_format=meta["source_format"],
@@ -84,6 +110,16 @@ def get_library(library_id: str):
         "track_count": len(lib.tracks),
         "playlist_count": len(lib.playlists),
     }
+
+
+@app.delete("/api/library/{library_id}")
+def delete_library(library_id: str):
+    """Delete a library from memory to free resources."""
+    lib = LIBRARIES.pop(library_id, None)
+    LIBRARY_ACCESS_TIMES.pop(library_id, None)
+    if not lib:
+        raise HTTPException(status_code=404, detail="Library not found")
+    return {"status": "deleted", "library_id": library_id}
 
 
 @app.get("/api/library/{library_id}/tracks")
@@ -170,6 +206,11 @@ class RewritePathsRequest(BaseModel):
 @app.post("/api/library/{library_id}/preview_rewrite_paths")
 def preview_rewrite_paths(library_id: str, req: RewritePathsRequest):
     lib = get_library_or_404(library_id)
+    
+    # Validate inputs
+    if not req.search:
+        raise HTTPException(status_code=400, detail="search string cannot be empty")
+    
     total = len(lib.tracks)
     affected = 0
     examples: List[dict] = []
@@ -197,6 +238,11 @@ def preview_rewrite_paths(library_id: str, req: RewritePathsRequest):
 @app.post("/api/library/{library_id}/apply_rewrite_paths")
 def apply_rewrite_paths(library_id: str, req: RewritePathsRequest):
     lib = get_library_or_404(library_id)
+    
+    # Validate inputs
+    if not req.search:
+        raise HTTPException(status_code=400, detail="search string cannot be empty")
+    
     changed = 0
     for t in lib.tracks:
         path = t.file_path or ""
@@ -701,6 +747,20 @@ class SmartPlaylistParams(BaseModel):
             raise ValueError('sort_by must be one of: bpm, year, key, random')
         return v
 
+    @validator('max_bpm')
+    def validate_bpm_range(cls, v, values):
+        if v is not None and 'min_bpm' in values and values['min_bpm'] is not None:
+            if v < values['min_bpm']:
+                raise ValueError('max_bpm must be greater than or equal to min_bpm')
+        return v
+
+    @validator('max_year')
+    def validate_year_range(cls, v, values):
+        if v is not None and 'min_year' in values and values['min_year'] is not None:
+            if v < values['min_year']:
+                raise ValueError('max_year must be greater than or equal to min_year')
+        return v
+
 
 @app.post("/api/library/{library_id}/generate_playlist_v2")
 def generate_playlist_v2(library_id: str, params: SmartPlaylistParams):
@@ -890,6 +950,11 @@ def global_search(library_id: str, q: str):
     Returns track details plus the list of playlists where each track is used.
     """
     lib = get_library_or_404(library_id)
+    
+    # Require minimum query length
+    if not q or len(q.strip()) < 1:
+        raise HTTPException(status_code=400, detail="Search query must be at least 1 character")
+    
     ql = q.lower()
 
     # Precompute usage map: track_id -> list of (playlist_id, playlist_name)
