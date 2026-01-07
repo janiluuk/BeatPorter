@@ -892,11 +892,7 @@ def suggest_transitions(
     - Falls back gracefully if metadata is missing.
     """
     lib = get_library_or_404(library_id)
-    base = None
-    for t in lib.tracks:
-        if t.id == from_track_id:
-            base = t
-            break
+    base = lib.get_track(from_track_id)
     if base is None:
         raise HTTPException(status_code=404, detail="from_track not found")
 
