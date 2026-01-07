@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from fastapi.responses import PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 
 from .models import Library, Track
 from .parsers import (
@@ -207,6 +207,28 @@ def apply_rewrite_paths(library_id: str, req: RewritePathsRequest):
 
 
 
+def _escape_xml(text: str) -> str:
+    """Escape special XML characters to prevent injection."""
+    if not text:
+        return ""
+    return (text
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&apos;"))
+
+
+def _escape_csv(text: str) -> str:
+    """Escape CSV injection characters."""
+    if not text:
+        return ""
+    # Remove leading characters that could trigger formula injection
+    if text and text[0] in ['=', '+', '-', '@', '\t', '\r']:
+        text = "'" + text
+    return text
+
+
 def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
     fmt = fmt.lower()
     if fmt == "m3u":
@@ -229,10 +251,10 @@ def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
         for t in tracks:
             writer.writerow(
                 [
-                    t.title or "",
-                    t.artist or "",
-                    t.file_path or "",
-                    t.key or "",
+                    _escape_csv(t.title or ""),
+                    _escape_csv(t.artist or ""),
+                    _escape_csv(t.file_path or ""),
+                    _escape_csv(t.key or ""),
                     t.bpm or "",
                     t.year or "",
                 ]
@@ -246,11 +268,16 @@ def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
             "  <COLLECTION>",
         ]
         for i, t in enumerate(tracks, start=1):
-            loc = t.file_path or ""
+            loc = _escape_xml(t.file_path or "")
+            title = _escape_xml(t.title or "")
+            artist = _escape_xml(t.artist or "")
+            key = _escape_xml(t.key or "")
+            bpm = t.bpm or ""
+            year = t.year or ""
             lines.append(
-                f'    <TRACK TrackID="{i}" Name="{t.title}" Artist="{t.artist}" '
-                f'Location="{loc}" AverageBpm="{t.bpm or ""}" Year="{t.year or ""}" '
-                f'TotalTime="{t.duration_seconds or DEFAULT_DURATION_SECONDS}" Tonality="{t.key or ""}" />'
+                f'    <TRACK TrackID="{i}" Name="{title}" Artist="{artist}" '
+                f'Location="{loc}" AverageBpm="{bpm}" Year="{year}" '
+                f'TotalTime="{t.duration_seconds or DEFAULT_DURATION_SECONDS}" Tonality="{key}" />'
             )
         lines.append("  </COLLECTION>")
         lines.append("  <PLAYLISTS>")
@@ -270,10 +297,10 @@ def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
             "  <COLLECTION>",
         ]
         for t in tracks:
-            title = t.title or ""
-            artist = t.artist or ""
+            title = _escape_xml(t.title or "")
+            artist = _escape_xml(t.artist or "")
             bpm = t.bpm or ""
-            key = t.key or ""
+            key = _escape_xml(t.key or "")
             year = t.year or ""
             duration = t.duration_seconds or DEFAULT_DURATION_SECONDS
             file_path = t.file_path or ""
@@ -282,6 +309,8 @@ def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
             if "/" in file_path:
                 dir_part = file_path.rsplit("/", 1)[0] + "/"
                 file_name = file_path.rsplit("/", 1)[1]
+            dir_part = _escape_xml(dir_part)
+            file_name = _escape_xml(file_name)
             lines.append(
                 f'    <ENTRY TITLE="{title}" ARTIST="{artist}">'
                 f'<INFO BPM="{bpm}" MUSICAL_KEY="{key}" RELEASE_DATE="{year}-01-01" PLAYTIME="{duration}" />'
@@ -294,7 +323,7 @@ def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
         lines.append('      <NODE NAME="Exported" TYPE="PLAYLIST">')
         # Use file_path as KEY to match what the parser expects
         for t in tracks:
-            track_key = t.file_path if t.file_path else t.title
+            track_key = _escape_xml(t.file_path if t.file_path else t.title or "")
             lines.append(f'        <ENTRY KEY="{track_key}" />')
         lines.append("      </NODE>")
         lines.append("    </NODE>")
@@ -384,10 +413,10 @@ def get_duplicates(library_id: str):
     buckets: Dict[tuple, List[Track]] = defaultdict(list)
 
     for t in lib.tracks:
-        norm_title = _normalize_for_dup(getattr(t, "title", None))
-        norm_artist = _normalize_for_dup(getattr(t, "artist", None))
+        norm_title = _normalize_for_dup(t.title)
+        norm_artist = _normalize_for_dup(t.artist)
         file_name = ""
-        path = getattr(t, "file_path", None)
+        path = t.file_path
         if path:
             file_name = path.replace("\\", "/").split("/")[-1].lower()
         key = (norm_artist, norm_title, file_name)
@@ -436,12 +465,12 @@ def get_metadata_issues(library_id: str):
 
     for t in lib.tracks:
         tid = t.id
-        bpm = getattr(t, "bpm", None)
-        key = getattr(t, "key", None)
-        year = getattr(t, "year", None)
-        path = getattr(t, "file_path", None)
-        title = getattr(t, "title", None)
-        artist = getattr(t, "artist", None)
+        bpm = t.bpm
+        key = t.key
+        year = t.year
+        path = t.file_path
+        title = t.title
+        artist = t.artist
 
         if not title or not title.strip():
             issues["empty_title"].append(tid)
@@ -474,25 +503,25 @@ def metadata_auto_fix(library_id: str, req: MetadataAutoFixRequest):
     lib = get_library_or_404(library_id)
     changed = 0
     for t in lib.tracks:
-        before = (t.title, t.artist, getattr(t, "key", None), getattr(t, "year", None))
+        before = (t.title, t.artist, t.key, t.year)
 
         if req.normalize_whitespace:
-            if getattr(t, "title", None):
+            if t.title:
                 t.title = t.title.strip()
-            if getattr(t, "artist", None):
+            if t.artist:
                 t.artist = t.artist.strip()
-            if getattr(t, "key", None):
+            if t.key:
                 t.key = t.key.strip()
                 while "  " in t.key:
                     t.key = t.key.replace("  ", " ")
 
-        if req.upper_case_keys and getattr(t, "key", None):
+        if req.upper_case_keys and t.key:
             t.key = t.key.upper()
 
-        if req.zero_year_to_null and getattr(t, "year", None) == 0:
+        if req.zero_year_to_null and t.year == 0:
             t.year = None
 
-        after = (t.title, t.artist, getattr(t, "key", None), getattr(t, "year", None))
+        after = (t.title, t.artist, t.key, t.year)
         if before != after:
             changed += 1
 
@@ -516,8 +545,8 @@ def get_library_stats(library_id: str):
     track_count = len(lib.tracks)
     playlist_count = len(lib.playlists)
 
-    bpms = [t.bpm for t in lib.tracks if getattr(t, "bpm", None) is not None]
-    years = [t.year for t in lib.tracks if getattr(t, "year", None) is not None]
+    bpms = [t.bpm for t in lib.tracks if t.bpm is not None]
+    years = [t.year for t in lib.tracks if t.year is not None]
 
     bpm_min = min(bpms) if bpms else None
     bpm_max = max(bpms) if bpms else None
@@ -602,15 +631,15 @@ def get_library_health(library_id: str):
         "unusual_year": [],
     }
 
-    current_year = datetime.datetime.utcnow().year
+    current_year = datetime.datetime.now(datetime.UTC).year
     valid_exts = {".mp3", ".wav", ".aiff", ".aif", ".flac", ".m4a", ".ogg"}
 
     for t in lib.tracks:
         tid = t.id
         path = t.file_path or ""
-        bpm = getattr(t, "bpm", None)
-        year = getattr(t, "year", None)
-        dur = getattr(t, "duration_seconds", None)
+        bpm = t.bpm
+        year = t.year
+        dur = t.duration_seconds
 
         if not path:
             issues["missing_file_path"].append(tid)
@@ -648,6 +677,30 @@ class SmartPlaylistParams(BaseModel):
     sort_by: str = "bpm"
     playlist_name: Optional[str] = None
 
+    @validator('target_minutes')
+    def validate_target_minutes(cls, v):
+        if v < 1 or v > 1440:
+            raise ValueError('target_minutes must be between 1 and 1440')
+        return v
+
+    @validator('min_bpm', 'max_bpm')
+    def validate_bpm(cls, v):
+        if v is not None and (v < 0 or v > 500):
+            raise ValueError('BPM must be between 0 and 500')
+        return v
+
+    @validator('min_year', 'max_year')
+    def validate_year(cls, v):
+        if v is not None and (v < 1900 or v > 2100):
+            raise ValueError('Year must be between 1900 and 2100')
+        return v
+
+    @validator('sort_by')
+    def validate_sort_by(cls, v):
+        if v not in ['bpm', 'year', 'key', 'random']:
+            raise ValueError('sort_by must be one of: bpm, year, key, random')
+        return v
+
 
 @app.post("/api/library/{library_id}/generate_playlist_v2")
 def generate_playlist_v2(library_id: str, params: SmartPlaylistParams):
@@ -658,9 +711,9 @@ def generate_playlist_v2(library_id: str, params: SmartPlaylistParams):
             hay = f"{t.title or ''} {t.artist or ''} {t.file_path or ''}".lower()
             if params.keyword.lower() not in hay:
                 return False
-        bpm = getattr(t, "bpm", None)
-        year = getattr(t, "year", None)
-        key = (getattr(t, "key", None) or "").upper()
+        bpm = t.bpm
+        year = t.year
+        key = (t.key or "").upper()
 
         if params.min_bpm is not None:
             if bpm is None or bpm < params.min_bpm:
@@ -676,6 +729,7 @@ def generate_playlist_v2(library_id: str, params: SmartPlaylistParams):
                 return False
         if params.keys:
             allowed = [k.upper() for k in params.keys]
+            # Only filter if track has a key; allow tracks without keys to pass through
             if key and key not in allowed:
                 return False
         return True
@@ -683,11 +737,11 @@ def generate_playlist_v2(library_id: str, params: SmartPlaylistParams):
     candidates = [t for t in lib.tracks if matches(t)]
 
     if params.sort_by == "bpm":
-        candidates.sort(key=lambda t: (getattr(t, "bpm", None) is None, getattr(t, "bpm", 0)))
+        candidates.sort(key=lambda t: (t.bpm is None, t.bpm or 0))
     elif params.sort_by == "year":
-        candidates.sort(key=lambda t: (getattr(t, "year", None) is None, getattr(t, "year", 0)))
+        candidates.sort(key=lambda t: (t.year is None, t.year or 0))
     elif params.sort_by == "key":
-        candidates.sort(key=lambda t: (getattr(t, "key", None) is None, getattr(t, "key", "")))
+        candidates.sort(key=lambda t: (t.key is None, t.key or ""))
     elif params.sort_by == "random":
         import random
         random.shuffle(candidates)
@@ -749,8 +803,8 @@ def merge_playlists(library_id: str, body: MergePlaylistsRequest):
 def suggest_transitions(
     library_id: str,
     from_track_id: str,
-    bpm_tolerance: float = 5.0,
-    max_results: int = 20,
+    bpm_tolerance: float = Query(5.0, ge=0, le=50),
+    max_results: int = Query(20, ge=1, le=100),
 ):
     """Suggest simple next tracks based on BPM + key proximity.
 
