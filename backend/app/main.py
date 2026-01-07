@@ -445,12 +445,17 @@ def export_bundle(library_id: str, body: ExportBundleRequest):
 
 
 from collections import defaultdict
+import re
+
+# Pre-compile regex for performance
+_NORM_REGEX = re.compile(r'[^a-z0-9\s]')
 
 def _normalize_for_dup(value: str | None) -> str:
     if not value:
         return ""
+    # Convert to lowercase and remove non-alphanumeric characters in one pass
     value = value.strip().lower()
-    return "".join(ch for ch in value if ch.isalnum() or ch.isspace())
+    return _NORM_REGEX.sub('', value)
 
 
 @app.get("/api/library/{library_id}/duplicates")
@@ -591,8 +596,34 @@ def get_library_stats(library_id: str):
     track_count = len(lib.tracks)
     playlist_count = len(lib.playlists)
 
-    bpms = [t.bpm for t in lib.tracks if t.bpm is not None]
-    years = [t.year for t in lib.tracks if t.year is not None]
+    # Single pass through tracks for all statistics
+    bpms = []
+    years = []
+    key_distribution: Dict[str, int] = {}
+    artist_counts: Dict[str, int] = {}
+    total_seconds = 0
+
+    for t in lib.tracks:
+        # BPM stats
+        if t.bpm is not None:
+            bpms.append(t.bpm)
+        
+        # Year stats
+        if t.year is not None:
+            years.append(t.year)
+        
+        # Key distribution
+        key = (t.key or "").strip().upper()
+        if key:
+            key_distribution[key] = key_distribution.get(key, 0) + 1
+        
+        # Artist counts
+        artist = (t.artist or "").strip()
+        if artist:
+            artist_counts[artist] = artist_counts.get(artist, 0) + 1
+        
+        # Total duration
+        total_seconds += t.duration_seconds or DEFAULT_DURATION_SECONDS
 
     bpm_min = min(bpms) if bpms else None
     bpm_max = max(bpms) if bpms else None
@@ -601,28 +632,10 @@ def get_library_stats(library_id: str):
     year_min = min(years) if years else None
     year_max = max(years) if years else None
 
-    key_distribution: Dict[str, int] = {}
-    for t in lib.tracks:
-        key = (t.key or "").strip().upper()
-        if not key:
-            continue
-        key_distribution[key] = key_distribution.get(key, 0) + 1
-
-    artist_counts: Dict[str, int] = {}
-    for t in lib.tracks:
-        artist = (t.artist or "").strip()
-        if not artist:
-            continue
-        artist_counts[artist] = artist_counts.get(artist, 0) + 1
-
     top_artists = sorted(
         [{"artist": a, "count": c} for a, c in artist_counts.items()],
         key=lambda x: (-x["count"], x["artist"]),
     )[:10]
-
-    total_seconds = 0
-    for t in lib.tracks:
-        total_seconds += t.duration_seconds or DEFAULT_DURATION_SECONDS
 
     approx_total_minutes = int(round(total_seconds / 60)) if track_count > 0 else 0
     approx_avg_minutes = (

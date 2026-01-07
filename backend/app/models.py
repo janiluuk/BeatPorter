@@ -30,9 +30,15 @@ class Library:
     name: str
     tracks: List[Track] = field(default_factory=list)
     playlists: Dict[str, Playlist] = field(default_factory=dict)
+    _track_index: Dict[str, Track] = field(default_factory=dict, init=False, repr=False)
 
     def add_track(self, track: Track):
         self.tracks.append(track)
+        self._track_index[track.id] = track
+
+    def get_track(self, track_id: str) -> Optional[Track]:
+        """Get track by ID using optimized index."""
+        return self._track_index.get(track_id)
 
     def add_playlist(self, name: str, track_ids: List[str]) -> str:
         pid = str(uuid.uuid4())
