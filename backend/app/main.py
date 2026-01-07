@@ -78,27 +78,32 @@ class ImportResponse(BaseModel):
 
 @app.post("/api/import", response_model=ImportResponse)
 async def import_library(file: UploadFile = File(...)):
-    content = await file.read()
-    fmt = detect_format(file.filename, content)
-    if fmt == "m3u":
-        lib, meta = parse_m3u(file.filename, content)
-    elif fmt == "serato":
-        lib, meta = parse_serato_csv(file.filename, content)
-    elif fmt == "rekordbox":
-        lib, meta = parse_rekordbox_xml(file.filename, content)
-    elif fmt == "traktor":
-        lib, meta = parse_traktor_nml(file.filename, content)
-    else:
-        raise HTTPException(status_code=400, detail="Could not detect format")
+    try:
+        content = await file.read()
+        fmt = detect_format(file.filename, content)
+        if fmt == "m3u":
+            lib, meta = parse_m3u(file.filename, content)
+        elif fmt == "serato":
+            lib, meta = parse_serato_csv(file.filename, content)
+        elif fmt == "rekordbox":
+            lib, meta = parse_rekordbox_xml(file.filename, content)
+        elif fmt == "traktor":
+            lib, meta = parse_traktor_nml(file.filename, content)
+        else:
+            raise HTTPException(status_code=400, detail="Could not detect format")
 
-    LIBRARIES[lib.id] = lib
-    LIBRARY_ACCESS_TIMES[lib.id] = time.time()
-    return ImportResponse(
-        library_id=lib.id,
-        source_format=meta["source_format"],
-        track_count=meta["track_count"],
-        playlist_count=meta["playlist_count"],
-    )
+        LIBRARIES[lib.id] = lib
+        LIBRARY_ACCESS_TIMES[lib.id] = time.time()
+        return ImportResponse(
+            library_id=lib.id,
+            source_format=meta["source_format"],
+            track_count=meta["track_count"],
+            playlist_count=meta["playlist_count"],
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to import library: {str(e)}")
 
 
 @app.get("/api/library/{library_id}")
