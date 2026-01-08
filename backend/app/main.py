@@ -3,11 +3,12 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 from typing import Dict, List, Optional
+import time
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from fastapi.responses import PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 
 from .models import Library, Track
 from .parsers import (
@@ -21,13 +22,37 @@ from .parsers import (
 
 app = FastAPI(title="BeatPorter v0.6")
 
+# Track library access times for cleanup
 LIBRARIES: Dict[str, Library] = {}
+LIBRARY_ACCESS_TIMES: Dict[str, float] = {}
+LIBRARY_TTL_SECONDS = 3600 * 2  # 2 hours
+
+
+def _cleanup_old_libraries():
+    """Remove libraries that haven't been accessed recently."""
+    current_time = time.time()
+    to_remove = []
+    for lib_id, access_time in LIBRARY_ACCESS_TIMES.items():
+        if current_time - access_time > LIBRARY_TTL_SECONDS:
+            to_remove.append(lib_id)
+    
+    for lib_id in to_remove:
+        LIBRARIES.pop(lib_id, None)
+        LIBRARY_ACCESS_TIMES.pop(lib_id, None)
+    
+    return len(to_remove)
 
 
 def get_library_or_404(library_id: str) -> Library:
+    # Clean up old libraries before accessing
+    _cleanup_old_libraries()
+    
     lib = LIBRARIES.get(library_id)
     if not lib:
         raise HTTPException(status_code=404, detail="Library not found")
+    
+    # Update access time
+    LIBRARY_ACCESS_TIMES[library_id] = time.time()
     return lib
 
 
@@ -53,26 +78,32 @@ class ImportResponse(BaseModel):
 
 @app.post("/api/import", response_model=ImportResponse)
 async def import_library(file: UploadFile = File(...)):
-    content = await file.read()
-    fmt = detect_format(file.filename, content)
-    if fmt == "m3u":
-        lib, meta = parse_m3u(file.filename, content)
-    elif fmt == "serato":
-        lib, meta = parse_serato_csv(file.filename, content)
-    elif fmt == "rekordbox":
-        lib, meta = parse_rekordbox_xml(file.filename, content)
-    elif fmt == "traktor":
-        lib, meta = parse_traktor_nml(file.filename, content)
-    else:
-        raise HTTPException(status_code=400, detail="Could not detect format")
+    try:
+        content = await file.read()
+        fmt = detect_format(file.filename, content)
+        if fmt == "m3u":
+            lib, meta = parse_m3u(file.filename, content)
+        elif fmt == "serato":
+            lib, meta = parse_serato_csv(file.filename, content)
+        elif fmt == "rekordbox":
+            lib, meta = parse_rekordbox_xml(file.filename, content)
+        elif fmt == "traktor":
+            lib, meta = parse_traktor_nml(file.filename, content)
+        else:
+            raise HTTPException(status_code=400, detail="Could not detect format")
 
-    LIBRARIES[lib.id] = lib
-    return ImportResponse(
-        library_id=lib.id,
-        source_format=meta["source_format"],
-        track_count=meta["track_count"],
-        playlist_count=meta["playlist_count"],
-    )
+        LIBRARIES[lib.id] = lib
+        LIBRARY_ACCESS_TIMES[lib.id] = time.time()
+        return ImportResponse(
+            library_id=lib.id,
+            source_format=meta["source_format"],
+            track_count=meta["track_count"],
+            playlist_count=meta["playlist_count"],
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to import library: {str(e)}")
 
 
 @app.get("/api/library/{library_id}")
@@ -84,6 +115,16 @@ def get_library(library_id: str):
         "track_count": len(lib.tracks),
         "playlist_count": len(lib.playlists),
     }
+
+
+@app.delete("/api/library/{library_id}")
+def delete_library(library_id: str):
+    """Delete a library from memory to free resources."""
+    lib = LIBRARIES.pop(library_id, None)
+    LIBRARY_ACCESS_TIMES.pop(library_id, None)
+    if not lib:
+        raise HTTPException(status_code=404, detail="Library not found")
+    return {"status": "deleted", "library_id": library_id}
 
 
 @app.get("/api/library/{library_id}/tracks")
@@ -170,6 +211,11 @@ class RewritePathsRequest(BaseModel):
 @app.post("/api/library/{library_id}/preview_rewrite_paths")
 def preview_rewrite_paths(library_id: str, req: RewritePathsRequest):
     lib = get_library_or_404(library_id)
+    
+    # Validate inputs
+    if not req.search:
+        raise HTTPException(status_code=400, detail="search string cannot be empty")
+    
     total = len(lib.tracks)
     affected = 0
     examples: List[dict] = []
@@ -197,6 +243,11 @@ def preview_rewrite_paths(library_id: str, req: RewritePathsRequest):
 @app.post("/api/library/{library_id}/apply_rewrite_paths")
 def apply_rewrite_paths(library_id: str, req: RewritePathsRequest):
     lib = get_library_or_404(library_id)
+    
+    # Validate inputs
+    if not req.search:
+        raise HTTPException(status_code=400, detail="search string cannot be empty")
+    
     changed = 0
     for t in lib.tracks:
         path = t.file_path or ""
@@ -205,6 +256,28 @@ def apply_rewrite_paths(library_id: str, req: RewritePathsRequest):
             changed += 1
     return {"changed_tracks": changed}
 
+
+
+def _escape_xml(text: str) -> str:
+    """Escape special XML characters to prevent injection."""
+    if not text:
+        return ""
+    return (text
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&apos;"))
+
+
+def _escape_csv(text: str) -> str:
+    """Escape CSV injection characters."""
+    if not text:
+        return ""
+    # Remove leading characters that could trigger formula injection
+    if text and text[0] in ['=', '+', '-', '@', '\t', '\r']:
+        text = "'" + text
+    return text
 
 
 def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
@@ -229,10 +302,10 @@ def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
         for t in tracks:
             writer.writerow(
                 [
-                    t.title or "",
-                    t.artist or "",
-                    t.file_path or "",
-                    t.key or "",
+                    _escape_csv(t.title or ""),
+                    _escape_csv(t.artist or ""),
+                    _escape_csv(t.file_path or ""),
+                    _escape_csv(t.key or ""),
                     t.bpm or "",
                     t.year or "",
                 ]
@@ -246,11 +319,16 @@ def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
             "  <COLLECTION>",
         ]
         for i, t in enumerate(tracks, start=1):
-            loc = t.file_path or ""
+            loc = _escape_xml(t.file_path or "")
+            title = _escape_xml(t.title or "")
+            artist = _escape_xml(t.artist or "")
+            key = _escape_xml(t.key or "")
+            bpm = t.bpm or ""
+            year = t.year or ""
             lines.append(
-                f'    <TRACK TrackID="{i}" Name="{t.title}" Artist="{t.artist}" '
-                f'Location="{loc}" AverageBpm="{t.bpm or ""}" Year="{t.year or ""}" '
-                f'TotalTime="{t.duration_seconds or DEFAULT_DURATION_SECONDS}" Tonality="{t.key or ""}" />'
+                f'    <TRACK TrackID="{i}" Name="{title}" Artist="{artist}" '
+                f'Location="{loc}" AverageBpm="{bpm}" Year="{year}" '
+                f'TotalTime="{t.duration_seconds or DEFAULT_DURATION_SECONDS}" Tonality="{key}" />'
             )
         lines.append("  </COLLECTION>")
         lines.append("  <PLAYLISTS>")
@@ -270,10 +348,10 @@ def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
             "  <COLLECTION>",
         ]
         for t in tracks:
-            title = t.title or ""
-            artist = t.artist or ""
+            title = _escape_xml(t.title or "")
+            artist = _escape_xml(t.artist or "")
             bpm = t.bpm or ""
-            key = t.key or ""
+            key = _escape_xml(t.key or "")
             year = t.year or ""
             duration = t.duration_seconds or DEFAULT_DURATION_SECONDS
             file_path = t.file_path or ""
@@ -282,6 +360,8 @@ def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
             if "/" in file_path:
                 dir_part = file_path.rsplit("/", 1)[0] + "/"
                 file_name = file_path.rsplit("/", 1)[1]
+            dir_part = _escape_xml(dir_part)
+            file_name = _escape_xml(file_name)
             lines.append(
                 f'    <ENTRY TITLE="{title}" ARTIST="{artist}">'
                 f'<INFO BPM="{bpm}" MUSICAL_KEY="{key}" RELEASE_DATE="{year}-01-01" PLAYTIME="{duration}" />'
@@ -294,7 +374,7 @@ def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
         lines.append('      <NODE NAME="Exported" TYPE="PLAYLIST">')
         # Use file_path as KEY to match what the parser expects
         for t in tracks:
-            track_key = t.file_path if t.file_path else t.title
+            track_key = _escape_xml(t.file_path if t.file_path else t.title or "")
             lines.append(f'        <ENTRY KEY="{track_key}" />')
         lines.append("      </NODE>")
         lines.append("    </NODE>")
@@ -370,12 +450,17 @@ def export_bundle(library_id: str, body: ExportBundleRequest):
 
 
 from collections import defaultdict
+import re
+
+# Pre-compile regex for performance
+_NORM_REGEX = re.compile(r'[^a-z0-9\s]')
 
 def _normalize_for_dup(value: str | None) -> str:
     if not value:
         return ""
+    # Convert to lowercase and remove non-alphanumeric characters in one pass
     value = value.strip().lower()
-    return "".join(ch for ch in value if ch.isalnum() or ch.isspace())
+    return _NORM_REGEX.sub('', value)
 
 
 @app.get("/api/library/{library_id}/duplicates")
@@ -384,10 +469,10 @@ def get_duplicates(library_id: str):
     buckets: Dict[tuple, List[Track]] = defaultdict(list)
 
     for t in lib.tracks:
-        norm_title = _normalize_for_dup(getattr(t, "title", None))
-        norm_artist = _normalize_for_dup(getattr(t, "artist", None))
+        norm_title = _normalize_for_dup(t.title)
+        norm_artist = _normalize_for_dup(t.artist)
         file_name = ""
-        path = getattr(t, "file_path", None)
+        path = t.file_path
         if path:
             file_name = path.replace("\\", "/").split("/")[-1].lower()
         key = (norm_artist, norm_title, file_name)
@@ -436,12 +521,12 @@ def get_metadata_issues(library_id: str):
 
     for t in lib.tracks:
         tid = t.id
-        bpm = getattr(t, "bpm", None)
-        key = getattr(t, "key", None)
-        year = getattr(t, "year", None)
-        path = getattr(t, "file_path", None)
-        title = getattr(t, "title", None)
-        artist = getattr(t, "artist", None)
+        bpm = t.bpm
+        key = t.key
+        year = t.year
+        path = t.file_path
+        title = t.title
+        artist = t.artist
 
         if not title or not title.strip():
             issues["empty_title"].append(tid)
@@ -474,25 +559,25 @@ def metadata_auto_fix(library_id: str, req: MetadataAutoFixRequest):
     lib = get_library_or_404(library_id)
     changed = 0
     for t in lib.tracks:
-        before = (t.title, t.artist, getattr(t, "key", None), getattr(t, "year", None))
+        before = (t.title, t.artist, t.key, t.year)
 
         if req.normalize_whitespace:
-            if getattr(t, "title", None):
+            if t.title:
                 t.title = t.title.strip()
-            if getattr(t, "artist", None):
+            if t.artist:
                 t.artist = t.artist.strip()
-            if getattr(t, "key", None):
+            if t.key:
                 t.key = t.key.strip()
                 while "  " in t.key:
                     t.key = t.key.replace("  ", " ")
 
-        if req.upper_case_keys and getattr(t, "key", None):
+        if req.upper_case_keys and t.key:
             t.key = t.key.upper()
 
-        if req.zero_year_to_null and getattr(t, "year", None) == 0:
+        if req.zero_year_to_null and t.year == 0:
             t.year = None
 
-        after = (t.title, t.artist, getattr(t, "key", None), getattr(t, "year", None))
+        after = (t.title, t.artist, t.key, t.year)
         if before != after:
             changed += 1
 
@@ -516,8 +601,34 @@ def get_library_stats(library_id: str):
     track_count = len(lib.tracks)
     playlist_count = len(lib.playlists)
 
-    bpms = [t.bpm for t in lib.tracks if getattr(t, "bpm", None) is not None]
-    years = [t.year for t in lib.tracks if getattr(t, "year", None) is not None]
+    # Single pass through tracks for all statistics
+    bpms = []
+    years = []
+    key_distribution: Dict[str, int] = {}
+    artist_counts: Dict[str, int] = {}
+    total_seconds = 0
+
+    for t in lib.tracks:
+        # BPM stats
+        if t.bpm is not None:
+            bpms.append(t.bpm)
+        
+        # Year stats
+        if t.year is not None:
+            years.append(t.year)
+        
+        # Key distribution
+        key = (t.key or "").strip().upper()
+        if key:
+            key_distribution[key] = key_distribution.get(key, 0) + 1
+        
+        # Artist counts
+        artist = (t.artist or "").strip()
+        if artist:
+            artist_counts[artist] = artist_counts.get(artist, 0) + 1
+        
+        # Total duration
+        total_seconds += t.duration_seconds or DEFAULT_DURATION_SECONDS
 
     bpm_min = min(bpms) if bpms else None
     bpm_max = max(bpms) if bpms else None
@@ -526,28 +637,10 @@ def get_library_stats(library_id: str):
     year_min = min(years) if years else None
     year_max = max(years) if years else None
 
-    key_distribution: Dict[str, int] = {}
-    for t in lib.tracks:
-        key = (t.key or "").strip().upper()
-        if not key:
-            continue
-        key_distribution[key] = key_distribution.get(key, 0) + 1
-
-    artist_counts: Dict[str, int] = {}
-    for t in lib.tracks:
-        artist = (t.artist or "").strip()
-        if not artist:
-            continue
-        artist_counts[artist] = artist_counts.get(artist, 0) + 1
-
     top_artists = sorted(
         [{"artist": a, "count": c} for a, c in artist_counts.items()],
         key=lambda x: (-x["count"], x["artist"]),
     )[:10]
-
-    total_seconds = 0
-    for t in lib.tracks:
-        total_seconds += t.duration_seconds or DEFAULT_DURATION_SECONDS
 
     approx_total_minutes = int(round(total_seconds / 60)) if track_count > 0 else 0
     approx_avg_minutes = (
@@ -602,15 +695,15 @@ def get_library_health(library_id: str):
         "unusual_year": [],
     }
 
-    current_year = datetime.datetime.utcnow().year
+    current_year = datetime.datetime.now(datetime.UTC).year
     valid_exts = {".mp3", ".wav", ".aiff", ".aif", ".flac", ".m4a", ".ogg"}
 
     for t in lib.tracks:
         tid = t.id
         path = t.file_path or ""
-        bpm = getattr(t, "bpm", None)
-        year = getattr(t, "year", None)
-        dur = getattr(t, "duration_seconds", None)
+        bpm = t.bpm
+        year = t.year
+        dur = t.duration_seconds
 
         if not path:
             issues["missing_file_path"].append(tid)
@@ -648,6 +741,44 @@ class SmartPlaylistParams(BaseModel):
     sort_by: str = "bpm"
     playlist_name: Optional[str] = None
 
+    @validator('target_minutes')
+    def validate_target_minutes(cls, v):
+        if v < 1 or v > 1440:
+            raise ValueError('target_minutes must be between 1 and 1440')
+        return v
+
+    @validator('min_bpm', 'max_bpm')
+    def validate_bpm(cls, v):
+        if v is not None and (v < 0 or v > 500):
+            raise ValueError('BPM must be between 0 and 500')
+        return v
+
+    @validator('min_year', 'max_year')
+    def validate_year(cls, v):
+        if v is not None and (v < 1900 or v > 2100):
+            raise ValueError('Year must be between 1900 and 2100')
+        return v
+
+    @validator('sort_by')
+    def validate_sort_by(cls, v):
+        if v not in ['bpm', 'year', 'key', 'random']:
+            raise ValueError('sort_by must be one of: bpm, year, key, random')
+        return v
+
+    @validator('max_bpm')
+    def validate_bpm_range(cls, v, values):
+        if v is not None and 'min_bpm' in values and values['min_bpm'] is not None:
+            if v < values['min_bpm']:
+                raise ValueError('max_bpm must be greater than or equal to min_bpm')
+        return v
+
+    @validator('max_year')
+    def validate_year_range(cls, v, values):
+        if v is not None and 'min_year' in values and values['min_year'] is not None:
+            if v < values['min_year']:
+                raise ValueError('max_year must be greater than or equal to min_year')
+        return v
+
 
 @app.post("/api/library/{library_id}/generate_playlist_v2")
 def generate_playlist_v2(library_id: str, params: SmartPlaylistParams):
@@ -658,9 +789,9 @@ def generate_playlist_v2(library_id: str, params: SmartPlaylistParams):
             hay = f"{t.title or ''} {t.artist or ''} {t.file_path or ''}".lower()
             if params.keyword.lower() not in hay:
                 return False
-        bpm = getattr(t, "bpm", None)
-        year = getattr(t, "year", None)
-        key = (getattr(t, "key", None) or "").upper()
+        bpm = t.bpm
+        year = t.year
+        key = (t.key or "").upper()
 
         if params.min_bpm is not None:
             if bpm is None or bpm < params.min_bpm:
@@ -676,6 +807,7 @@ def generate_playlist_v2(library_id: str, params: SmartPlaylistParams):
                 return False
         if params.keys:
             allowed = [k.upper() for k in params.keys]
+            # Only filter if track has a key; allow tracks without keys to pass through
             if key and key not in allowed:
                 return False
         return True
@@ -683,11 +815,11 @@ def generate_playlist_v2(library_id: str, params: SmartPlaylistParams):
     candidates = [t for t in lib.tracks if matches(t)]
 
     if params.sort_by == "bpm":
-        candidates.sort(key=lambda t: (getattr(t, "bpm", None) is None, getattr(t, "bpm", 0)))
+        candidates.sort(key=lambda t: (t.bpm is None, t.bpm or 0))
     elif params.sort_by == "year":
-        candidates.sort(key=lambda t: (getattr(t, "year", None) is None, getattr(t, "year", 0)))
+        candidates.sort(key=lambda t: (t.year is None, t.year or 0))
     elif params.sort_by == "key":
-        candidates.sort(key=lambda t: (getattr(t, "key", None) is None, getattr(t, "key", "")))
+        candidates.sort(key=lambda t: (t.key is None, t.key or ""))
     elif params.sort_by == "random":
         import random
         random.shuffle(candidates)
@@ -749,8 +881,8 @@ def merge_playlists(library_id: str, body: MergePlaylistsRequest):
 def suggest_transitions(
     library_id: str,
     from_track_id: str,
-    bpm_tolerance: float = 5.0,
-    max_results: int = 20,
+    bpm_tolerance: float = Query(5.0, ge=0, le=50),
+    max_results: int = Query(20, ge=1, le=100),
 ):
     """Suggest simple next tracks based on BPM + key proximity.
 
@@ -760,11 +892,7 @@ def suggest_transitions(
     - Falls back gracefully if metadata is missing.
     """
     lib = get_library_or_404(library_id)
-    base = None
-    for t in lib.tracks:
-        if t.id == from_track_id:
-            base = t
-            break
+    base = lib.get_track(from_track_id)
     if base is None:
         raise HTTPException(status_code=404, detail="from_track not found")
 
@@ -836,6 +964,11 @@ def global_search(library_id: str, q: str):
     Returns track details plus the list of playlists where each track is used.
     """
     lib = get_library_or_404(library_id)
+    
+    # Require minimum query length
+    if not q or len(q.strip()) < 1:
+        raise HTTPException(status_code=400, detail="Search query must be at least 1 character")
+    
     ql = q.lower()
 
     # Precompute usage map: track_id -> list of (playlist_id, playlist_name)
