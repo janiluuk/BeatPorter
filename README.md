@@ -129,7 +129,7 @@ Response:
 ```json
 {
   "library_id": "uuid",
-  "source_format": "rekordbox|serato|traktor|m3u",
+  "source_format": "rekordbox_xml|serato_csv|traktor_nml|m3u",
   "track_count": 123,
   "playlist_count": 7
 }
@@ -274,8 +274,9 @@ Returns a new playlist object and the actual duration.
 ```http
 POST /api/library/{id}/merge_playlists
 {
-  "playlist_ids": ["id1", "id2"],
-  "name": "Combined crate"
+  "source_playlist_ids": ["id1", "id2"],
+  "name": "Combined crate",
+  "deduplicate": true
 }
 ```
 
