@@ -10,10 +10,27 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from fastapi.testclient import TestClient
 from backend.app.main import app
-from backend.app.parsers import parse_rekordbox_xml, parse_traktor_nml
+from backend.app.parsers import (
+    DEFAULT_DURATION_SECONDS,
+    parse_m3u,
+    parse_rekordbox_xml,
+    parse_traktor_nml,
+)
 from backend.app.main import _render_export_tracks
 
 client = TestClient(app)
+
+
+def test_m3u_negative_extinf_duration_defaults():
+    m3u_content = b"""#EXTM3U
+#EXTINF:-1,Artist - Title
+/music/track.mp3
+"""
+
+    lib, _ = parse_m3u("test.m3u", m3u_content)
+
+    assert len(lib.tracks) == 1
+    assert lib.tracks[0].duration_seconds == DEFAULT_DURATION_SECONDS
 
 
 def test_rekordbox_import_and_export():
