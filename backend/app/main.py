@@ -2,6 +2,7 @@
 from __future__ import annotations
 import uuid
 from pathlib import Path
+import re
 from typing import Dict, List, Optional
 import time
 
@@ -274,9 +275,8 @@ def _escape_csv(text: str) -> str:
     """Escape CSV injection characters."""
     if not text:
         return ""
-    # Remove leading characters that could trigger formula injection
-    if text and text[0] in ['=', '+', '-', '@', '\t', '\r']:
-        text = "'" + text
+    if re.match(r"^[\s\t\r]*[=+\-@]", text):
+        return "'" + text
     return text
 
 
