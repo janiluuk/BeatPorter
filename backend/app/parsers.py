@@ -72,7 +72,7 @@ def parse_m3u(filename: str, content: bytes) -> Tuple[Library, Dict]:
                     artist, title = rest.split(" - ", 1)
                 else:
                     artist, title = "", rest
-                # Don't strip() to preserve leading/trailing whitespace for security checks
+                # Don't strip() to preserve leading/trailing whitespace for CSV formula injection detection in exports
                 current_title_artist = (title, artist)
             except Exception:
                 current_title_artist = ("", "")
