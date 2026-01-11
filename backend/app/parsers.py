@@ -68,6 +68,8 @@ def parse_m3u(filename: str, content: bytes) -> Tuple[Library, Dict]:
                 meta = line.split(":", 1)[1]
                 dur_str, rest = meta.split(",", 1)
                 duration = int(float(dur_str))
+                if duration <= 0:
+                    duration = None
                 if " - " in rest:
                     artist, title = rest.split(" - ", 1)
                 else:
@@ -85,7 +87,7 @@ def parse_m3u(filename: str, content: bytes) -> Tuple[Library, Dict]:
                 title=title or file_path.split("/")[-1],
                 artist=artist,
                 file_path=file_path,
-                duration_seconds=duration or DEFAULT_DURATION_SECONDS,
+                duration_seconds=duration if duration and duration > 0 else DEFAULT_DURATION_SECONDS,
             )
             lib.add_track(track)
             playlist_track_ids.append(tid)
