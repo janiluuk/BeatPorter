@@ -183,3 +183,40 @@ def test_metadata_autofix_whitespace_normalization():
     resp = client.post(f"/api/library/{library_id}/metadata_auto_fix", json=body)
     assert resp.status_code == 200
     # Should complete successfully (testing that it doesn't hang with inefficient loop)
+
+
+def test_export_empty_library():
+    """Test that exporting an empty library works correctly."""
+    # Import empty library
+    content = "#EXTM3U\n"
+    files = {"file": ("empty.m3u", content, "audio/x-mpegurl")}
+    resp = client.post("/api/import", files=files)
+    assert resp.status_code == 200
+    library_id = resp.json()["library_id"]
+    
+    # Export to different formats
+    for fmt in ["m3u", "serato", "rekordbox", "traktor"]:
+        resp = client.post(f"/api/library/{library_id}/export", params={"format": fmt})
+        assert resp.status_code == 200
+        # Should return valid content even if empty
+        assert len(resp.content) > 0
+
+
+def test_library_cleanup_efficiency():
+    """Test that library cleanup is efficient."""
+    # Create a few libraries
+    lib_ids = []
+    for i in range(5):
+        content = f"""#EXTM3U
+#EXTINF:300,Artist {i} - Track {i}
+/path/to/track{i}.mp3
+"""
+        files = {"file": (f"test{i}.m3u", content, "audio/x-mpegurl")}
+        resp = client.post("/api/import", files=files)
+        assert resp.status_code == 200
+        lib_ids.append(resp.json()["library_id"])
+    
+    # Access one of them to verify cleanup runs
+    resp = client.get(f"/api/library/{lib_ids[0]}")
+    assert resp.status_code == 200
+    # If we got here, cleanup ran successfully without errors

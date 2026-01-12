@@ -31,12 +31,16 @@ MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 
 
 def _cleanup_old_libraries():
-    """Remove libraries that haven't been accessed recently."""
+    """Remove libraries that haven't been accessed recently.
+    
+    This is called on every library access to ensure stale libraries
+    are eventually cleaned up without requiring a background task.
+    """
     current_time = time.time()
-    to_remove = []
-    for lib_id, access_time in LIBRARY_ACCESS_TIMES.items():
-        if current_time - access_time > LIBRARY_TTL_SECONDS:
-            to_remove.append(lib_id)
+    to_remove = [
+        lib_id for lib_id, access_time in LIBRARY_ACCESS_TIMES.items()
+        if current_time - access_time > LIBRARY_TTL_SECONDS
+    ]
     
     for lib_id in to_remove:
         LIBRARIES.pop(lib_id, None)
