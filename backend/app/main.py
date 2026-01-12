@@ -405,8 +405,8 @@ def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
     if fmt == "txt":
         lines = []
         for i, t in enumerate(tracks, start=1):
-            artist = t.artist or ""
-            title = t.title or ""
+            artist = (t.artist or "").strip()
+            title = (t.title or "").strip()
             # Format: "Artist - Title" or use title if artist is missing
             if artist and title:
                 lines.append(f"{i}. {artist} - {title}")
