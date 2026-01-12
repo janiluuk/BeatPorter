@@ -416,7 +416,11 @@ def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
                 lines.append(f"{i}. {artist}")
             else:
                 # Fallback to file path if both are missing
-                filename = (t.file_path or "").split("/")[-1] if t.file_path else "Unknown Track"
+                # Handle both Unix (/) and Windows (\) path separators
+                if t.file_path:
+                    filename = t.file_path.replace("\\", "/").split("/")[-1]
+                else:
+                    filename = "Unknown Track"
                 lines.append(f"{i}. {filename}")
         return "\n".join(lines)
 
