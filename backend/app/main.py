@@ -27,6 +27,7 @@ app = FastAPI(title="BeatPorter v0.6")
 LIBRARIES: Dict[str, Library] = {}
 LIBRARY_ACCESS_TIMES: Dict[str, float] = {}
 LIBRARY_TTL_SECONDS = 3600 * 2  # 2 hours
+MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 
 
 def _cleanup_old_libraries():
@@ -81,6 +82,14 @@ class ImportResponse(BaseModel):
 async def import_library(file: UploadFile = File(...)):
     try:
         content = await file.read()
+        
+        # Check file size to prevent memory exhaustion
+        if len(content) > MAX_UPLOAD_SIZE_BYTES:
+            raise HTTPException(
+                status_code=413, 
+                detail=f"File too large. Maximum size is {MAX_UPLOAD_SIZE_BYTES // (1024 * 1024)} MB"
+            )
+        
         fmt = detect_format(file.filename, content)
         if fmt == "m3u":
             lib, meta = parse_m3u(file.filename, content)
@@ -878,6 +887,23 @@ class MergePlaylistsRequest(BaseModel):
     source_playlist_ids: List[str]
     name: str
     deduplicate: bool = True
+
+    @validator('source_playlist_ids')
+    def validate_source_playlists(cls, v):
+        if not v:
+            raise ValueError('source_playlist_ids list cannot be empty')
+        # Check for duplicates in the source list
+        if len(v) != len(set(v)):
+            raise ValueError('source_playlist_ids contains duplicates')
+        return v
+
+    @validator('name')
+    def validate_name(cls, v):
+        if not v or not v.strip():
+            raise ValueError('name cannot be empty')
+        if len(v) > 200:
+            raise ValueError('name too long (max 200 characters)')
+        return v.strip()
 
 
 @app.post("/api/library/{library_id}/merge_playlists")
