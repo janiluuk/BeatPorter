@@ -27,15 +27,20 @@ app = FastAPI(title="BeatPorter v0.6")
 LIBRARIES: Dict[str, Library] = {}
 LIBRARY_ACCESS_TIMES: Dict[str, float] = {}
 LIBRARY_TTL_SECONDS = 3600 * 2  # 2 hours
+MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 
 
 def _cleanup_old_libraries():
-    """Remove libraries that haven't been accessed recently."""
+    """Remove libraries that haven't been accessed recently.
+    
+    This is called on every library access to ensure stale libraries
+    are eventually cleaned up without requiring a background task.
+    """
     current_time = time.time()
-    to_remove = []
-    for lib_id, access_time in LIBRARY_ACCESS_TIMES.items():
-        if current_time - access_time > LIBRARY_TTL_SECONDS:
-            to_remove.append(lib_id)
+    to_remove = [
+        lib_id for lib_id, access_time in LIBRARY_ACCESS_TIMES.items()
+        if current_time - access_time > LIBRARY_TTL_SECONDS
+    ]
     
     for lib_id in to_remove:
         LIBRARIES.pop(lib_id, None)
@@ -81,6 +86,14 @@ class ImportResponse(BaseModel):
 async def import_library(file: UploadFile = File(...)):
     try:
         content = await file.read()
+        
+        # Check file size to prevent memory exhaustion
+        if len(content) > MAX_UPLOAD_SIZE_BYTES:
+            raise HTTPException(
+                status_code=413, 
+                detail=f"File too large. Maximum size is {MAX_UPLOAD_SIZE_BYTES // (1024 * 1024)} MB"
+            )
+        
         fmt = detect_format(file.filename, content)
         if fmt == "m3u":
             lib, meta = parse_m3u(file.filename, content)
@@ -272,10 +285,17 @@ def _escape_xml(text: str) -> str:
 
 
 def _escape_csv(text: str) -> str:
-    """Escape CSV injection characters."""
+    """Escape CSV injection characters to prevent formula injection attacks.
+    
+    Prepends a single quote to any field that starts with dangerous characters
+    (=, +, -, @, tab, or carriage return) that could be interpreted as formulas
+    by spreadsheet applications.
+    """
     if not text:
         return ""
-    if re.match(r"^[\s\t\r]*[=+\-@]", text):
+    # Check for leading whitespace followed by dangerous characters
+    # or dangerous characters at the start
+    if re.match(r"^[\s\t\r\n]*[=+\-@\t\r]", text):
         return "'" + text
     return text
 
@@ -392,6 +412,15 @@ def export_library(
     playlist_id: Optional[str] = None,
 ):
     lib = get_library_or_404(library_id)
+    
+    # Validate format early
+    valid_formats = {"m3u", "serato", "rekordbox", "traktor"}
+    if format.lower() not in valid_formats:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid format '{format}'. Must be one of: {', '.join(valid_formats)}"
+        )
+    
     tracks = lib.tracks
     if playlist_id:
         pl = lib.playlists.get(playlist_id)
@@ -408,6 +437,16 @@ def export_library(
 class ExportBundleRequest(BaseModel):
     formats: List[str]
     playlist_id: Optional[str] = None
+
+    @validator('formats')
+    def validate_formats(cls, v):
+        if not v:
+            raise ValueError('formats list cannot be empty')
+        valid_formats = {'m3u', 'serato', 'rekordbox', 'traktor'}
+        for fmt in v:
+            if fmt.lower() not in valid_formats:
+                raise ValueError(f"Invalid format '{fmt}'. Must be one of: {', '.join(valid_formats)}")
+        return v
 
 
 @app.post("/api/library/{library_id}/export_bundle")
@@ -428,18 +467,18 @@ def export_bundle(library_id: str, body: ExportBundleRequest):
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         for fmt in body.formats:
-            text = _render_export_tracks(tracks, fmt)
             f = fmt.lower()
+            # Validator ensures these are valid formats
             if f == "m3u":
                 fname = "library.m3u"
             elif f == "serato":
                 fname = "library_serato.csv"
             elif f == "rekordbox":
                 fname = "library_rekordbox.xml"
-            elif f == "traktor":
+            else:  # f == "traktor"
                 fname = "library_traktor.nml"
-            else:
-                raise HTTPException(status_code=400, detail=f"Unsupported export format in bundle: {fmt}")
+            
+            text = _render_export_tracks(tracks, fmt)
             z.writestr(fname, text)
 
     return Response(
@@ -479,8 +518,12 @@ def get_duplicates(library_id: str):
         buckets[key].append(t)
 
     groups: List[dict] = []
-    for (_a, _t, _f), tracks in buckets.items():
+    for (norm_artist, norm_title, file_name), tracks in buckets.items():
         if len(tracks) < 2:
+            continue
+        # Skip groups where all identifying fields are empty
+        # (these aren't real duplicates, just tracks with missing metadata)
+        if not norm_artist and not norm_title and not file_name:
             continue
         groups.append(
             {
@@ -568,8 +611,8 @@ def metadata_auto_fix(library_id: str, req: MetadataAutoFixRequest):
                 t.artist = t.artist.strip()
             if t.key:
                 t.key = t.key.strip()
-                while "  " in t.key:
-                    t.key = t.key.replace("  ", " ")
+                # Use regex to replace multiple spaces with single space (more efficient)
+                t.key = re.sub(r'\s+', ' ', t.key)
 
         if req.upper_case_keys and t.key:
             t.key = t.key.upper()
@@ -848,6 +891,23 @@ class MergePlaylistsRequest(BaseModel):
     source_playlist_ids: List[str]
     name: str
     deduplicate: bool = True
+
+    @validator('source_playlist_ids')
+    def validate_source_playlists(cls, v):
+        if not v:
+            raise ValueError('source_playlist_ids list cannot be empty')
+        # Check for duplicates in the source list
+        if len(v) != len(set(v)):
+            raise ValueError('source_playlist_ids contains duplicates')
+        return v
+
+    @validator('name')
+    def validate_name(cls, v):
+        if not v or not v.strip():
+            raise ValueError('name cannot be empty')
+        if len(v) > 200:
+            raise ValueError('name too long (max 200 characters)')
+        return v.strip()
 
 
 @app.post("/api/library/{library_id}/merge_playlists")
