@@ -65,6 +65,8 @@ def test_csv_export_prevents_formula_injection():
 /path/to/track.mp3
 #EXTINF:240,-cmd - @formula
 /path/to/track2.mp3
+#EXTINF:180,  =SUM(B1:B10) - \t+3+3
+/path/to/track3.mp3
 """
     files = {"file": ("test.m3u", content, "audio/x-mpegurl")}
     resp = client.post("/api/import", files=files)
@@ -84,6 +86,8 @@ def test_csv_export_prevents_formula_injection():
             # Lines starting with dangerous characters should be escaped with '
             if any(line.startswith(c) for c in ['=', '+', '-', '@']):
                 assert line.startswith("'") or "'" in line, f"Line not properly escaped: {line}"
+    assert "'  =SUM(B1:B10)" in csv_content
+    assert "'\t+3+3" in csv_content
 
 
 def test_bundle_export_escapes_all_formats():
