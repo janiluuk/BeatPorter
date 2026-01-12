@@ -5,6 +5,8 @@ Ensures that conversions preserve all metadata and playlists.
 
 import os
 import sys
+import io
+import zipfile
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -385,3 +387,111 @@ def test_api_import_traktor_and_export_rekordbox():
     rekordbox_output = resp.content.decode()
     assert "<DJ_PLAYLISTS" in rekordbox_output
     assert "TotalTime=" in rekordbox_output
+
+
+def test_txt_export_format():
+    """Test TXT export format with numbered tracklist."""
+    from backend.app.models import Track, Library
+    
+    # Create a simple library with test tracks
+    lib = Library(id="test-lib", name="Test Library")
+    track1 = Track(
+        id="t1",
+        title="First Track",
+        artist="Artist One",
+        file_path="/music/track1.mp3",
+        duration_seconds=300,
+    )
+    track2 = Track(
+        id="t2",
+        title="Second Track",
+        artist="Artist Two",
+        file_path="/music/track2.mp3",
+        duration_seconds=240,
+    )
+    track3 = Track(
+        id="t3",
+        title="No Artist Track",
+        artist="",
+        file_path="/music/track3.mp3",
+        duration_seconds=180,
+    )
+    lib.add_track(track1)
+    lib.add_track(track2)
+    lib.add_track(track3)
+    
+    # Export to TXT
+    txt_output = _render_export_tracks(lib.tracks, "txt")
+    
+    # Verify format
+    lines = txt_output.split("\n")
+    assert len(lines) == 3
+    assert lines[0] == "1. Artist One - First Track"
+    assert lines[1] == "2. Artist Two - Second Track"
+    assert lines[2] == "3. No Artist Track"
+
+
+def test_api_export_txt_format():
+    """Test API endpoint for TXT export."""
+    m3u_content = b"""#EXTM3U
+#EXTINF:300,Artist One - Track One
+/music/track1.mp3
+#EXTINF:240,Artist Two - Track Two
+/music/track2.mp3
+"""
+    
+    # Import M3U
+    files = {"file": ("test.m3u", m3u_content, "audio/x-mpegurl")}
+    resp = client.post("/api/import", files=files)
+    assert resp.status_code == 200
+    data = resp.json()
+    library_id = data["library_id"]
+    
+    # Export to TXT
+    resp = client.post(f"/api/library/{library_id}/export", params={"format": "txt"})
+    assert resp.status_code == 200
+    txt_output = resp.content.decode()
+    
+    # Verify format
+    lines = txt_output.strip().split("\n")
+    assert len(lines) == 2
+    assert "Artist One - Track One" in lines[0]
+    assert "Artist Two - Track Two" in lines[1]
+    assert lines[0].startswith("1. ")
+    assert lines[1].startswith("2. ")
+
+
+def test_export_bundle_includes_txt():
+    """Test that TXT format can be included in export bundle."""
+    m3u_content = b"""#EXTM3U
+#EXTINF:300,Artist - Track
+/music/track.mp3
+"""
+    
+    # Import M3U
+    files = {"file": ("test.m3u", m3u_content, "audio/x-mpegurl")}
+    resp = client.post("/api/import", files=files)
+    assert resp.status_code == 200
+    data = resp.json()
+    library_id = data["library_id"]
+    
+    # Export bundle with TXT format
+    resp = client.post(
+        f"/api/library/{library_id}/export_bundle",
+        json={"formats": ["m3u", "txt"]},
+    )
+    assert resp.status_code == 200
+    assert "application/zip" in resp.headers.get("content-type", "")
+    
+    # Verify ZIP contains TXT file
+    buf = io.BytesIO(resp.content)
+    with zipfile.ZipFile(buf, "r") as z:
+        names = z.namelist()
+        assert "library.m3u" in names
+        assert "library_tracklist.txt" in names
+        
+        # Verify TXT content
+        txt_content = z.read("library_tracklist.txt").decode()
+        assert "Artist - Track" in txt_content
+        assert "1. " in txt_content
+

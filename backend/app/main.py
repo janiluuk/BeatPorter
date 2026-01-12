@@ -402,6 +402,24 @@ def _render_export_tracks(tracks: List[Track], fmt: str) -> str:
         lines.append("</NML>")
         return "\n".join(lines)
 
+    if fmt == "txt":
+        lines = []
+        for i, t in enumerate(tracks, start=1):
+            artist = t.artist or ""
+            title = t.title or ""
+            # Format: "Artist - Title" or use title if artist is missing
+            if artist and title:
+                lines.append(f"{i}. {artist} - {title}")
+            elif title:
+                lines.append(f"{i}. {title}")
+            elif artist:
+                lines.append(f"{i}. {artist}")
+            else:
+                # Fallback to file path if both are missing
+                filename = (t.file_path or "").split("/")[-1] if t.file_path else "Unknown Track"
+                lines.append(f"{i}. {filename}")
+        return "\n".join(lines)
+
     raise HTTPException(status_code=400, detail="Unsupported export format")
 
 
@@ -414,7 +432,7 @@ def export_library(
     lib = get_library_or_404(library_id)
     
     # Validate format early
-    valid_formats = {"m3u", "serato", "rekordbox", "traktor"}
+    valid_formats = {"m3u", "serato", "rekordbox", "traktor", "txt"}
     if format.lower() not in valid_formats:
         raise HTTPException(
             status_code=400, 
@@ -442,7 +460,7 @@ class ExportBundleRequest(BaseModel):
     def validate_formats(cls, v):
         if not v:
             raise ValueError('formats list cannot be empty')
-        valid_formats = {'m3u', 'serato', 'rekordbox', 'traktor'}
+        valid_formats = {'m3u', 'serato', 'rekordbox', 'traktor', 'txt'}
         for fmt in v:
             if fmt.lower() not in valid_formats:
                 raise ValueError(f"Invalid format '{fmt}'. Must be one of: {', '.join(valid_formats)}")
@@ -475,8 +493,10 @@ def export_bundle(library_id: str, body: ExportBundleRequest):
                 fname = "library_serato.csv"
             elif f == "rekordbox":
                 fname = "library_rekordbox.xml"
-            else:  # f == "traktor"
+            elif f == "traktor":
                 fname = "library_traktor.nml"
+            else:  # f == "txt"
+                fname = "library_tracklist.txt"
             
             text = _render_export_tracks(tracks, fmt)
             z.writestr(fname, text)
