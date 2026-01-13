@@ -22,7 +22,7 @@ From a single import you can:
 
 - 🔁 **Convert between formats**
   - Import Rekordbox XML, Serato CSV, Traktor NML, or M3U
-  - Export as M3U / Serato CSV / Rekordbox XML / Traktor NML
+  - Export as M3U / Serato CSV / Rekordbox XML / Traktor NML / TXT
   - Or download a **multi‑format bundle** in one ZIP
 
 - 🧹 **Clean up your library**
@@ -129,7 +129,7 @@ Response:
 ```json
 {
   "library_id": "uuid",
-  "source_format": "rekordbox|serato|traktor|m3u",
+  "source_format": "rekordbox_xml|serato_csv|traktor_nml|m3u",
   "track_count": 123,
   "playlist_count": 7
 }
@@ -149,11 +149,18 @@ Returns a flat list of tracks with basic metadata.
 ### Export to a single format
 
 ```http
-POST /api/library/{id}/export?format=m3u|serato|rekordbox|traktor
+POST /api/library/{id}/export?format=m3u|serato|rekordbox|traktor|txt
 ```
 
 Returns a text body in the chosen format. Use this to save a new playlist
 back into your DJ software.
+
+The `txt` format exports a simple numbered tracklist in the format:
+```
+1. Artist - Title
+2. Artist - Title
+...
+```
 
 ### Export a multi‑format bundle
 
@@ -162,7 +169,7 @@ POST /api/library/{id}/export_bundle
 Content-Type: application/json
 
 {
-  "formats": ["m3u", "rekordbox", "traktor"],
+  "formats": ["m3u", "rekordbox", "traktor", "txt"],
   "playlist_id": null
 }
 ```
@@ -172,6 +179,7 @@ Returns a `application/zip` containing e.g.:
 - `library.m3u`
 - `library_rekordbox.xml`
 - `library_traktor.nml`
+- `library_tracklist.txt`
 
 If `playlist_id` is provided, only that playlist’s tracks are exported.
 
@@ -274,8 +282,9 @@ Returns a new playlist object and the actual duration.
 ```http
 POST /api/library/{id}/merge_playlists
 {
-  "playlist_ids": ["id1", "id2"],
-  "name": "Combined crate"
+  "source_playlist_ids": ["id1", "id2"],
+  "name": "Combined crate",
+  "deduplicate": true
 }
 ```
 
