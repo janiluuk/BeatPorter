@@ -60,3 +60,23 @@ def test_export_bundle_creates_zip_with_formats():
         names = z.namelist()
         assert "library.m3u" in names
         assert "library_rekordbox.xml" in names
+
+
+def test_export_bundle_rejects_empty_formats():
+    library_id = _import_m3u_library()
+
+    resp = client.post(
+        f"/api/library/{library_id}/export_bundle",
+        json={"formats": []},
+    )
+    assert resp.status_code == 422
+
+
+def test_export_bundle_rejects_duplicate_formats():
+    library_id = _import_m3u_library()
+
+    resp = client.post(
+        f"/api/library/{library_id}/export_bundle",
+        json={"formats": ["m3u", "M3U"]},
+    )
+    assert resp.status_code == 422

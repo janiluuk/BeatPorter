@@ -23,6 +23,8 @@ from .parsers import (
 
 app = FastAPI(title="BeatPorter v0.6")
 
+SUPPORTED_EXPORT_FORMATS = ("m3u", "serato", "rekordbox", "traktor", "txt")
+
 # Track library access times for cleanup
 LIBRARIES: Dict[str, Library] = {}
 LIBRARY_ACCESS_TIMES: Dict[str, float] = {}
@@ -436,11 +438,10 @@ def export_library(
     lib = get_library_or_404(library_id)
     
     # Validate format early
-    valid_formats = {"m3u", "serato", "rekordbox", "traktor", "txt"}
-    if format.lower() not in valid_formats:
+    if format.lower() not in SUPPORTED_EXPORT_FORMATS:
         raise HTTPException(
             status_code=400, 
-            detail=f"Invalid format '{format}'. Must be one of: {', '.join(valid_formats)}"
+            detail=f"Invalid format '{format}'. Must be one of: {', '.join(SUPPORTED_EXPORT_FORMATS)}"
         )
     
     tracks = lib.tracks
@@ -460,15 +461,35 @@ class ExportBundleRequest(BaseModel):
     formats: List[str]
     playlist_id: Optional[str] = None
 
-    @validator('formats')
-    def validate_formats(cls, v):
-        if not v:
-            raise ValueError('formats list cannot be empty')
-        valid_formats = {'m3u', 'serato', 'rekordbox', 'traktor', 'txt'}
-        for fmt in v:
-            if fmt.lower() not in valid_formats:
-                raise ValueError(f"Invalid format '{fmt}'. Must be one of: {', '.join(valid_formats)}")
-        return v
+    @validator("formats")
+    def validate_formats(cls, value: List[str]) -> List[str]:
+        if not value:
+            raise ValueError("formats must include at least one format")
+
+        normalized: List[str] = []
+        seen = set()
+        duplicates = set()
+        for fmt in value:
+            norm = fmt.strip().lower()
+            if norm in seen:
+                duplicates.add(norm)
+            else:
+                seen.add(norm)
+                normalized.append(norm)
+
+        if duplicates:
+            dup_list = ", ".join(sorted(duplicates))
+            raise ValueError(f"Duplicate export formats: {dup_list}")
+
+        unsupported = [fmt for fmt in normalized if fmt not in SUPPORTED_EXPORT_FORMATS]
+        if unsupported:
+            supported = ", ".join(SUPPORTED_EXPORT_FORMATS)
+            unsupported_list = ", ".join(unsupported)
+            raise ValueError(
+                f"Unsupported export format(s): {unsupported_list}. Supported formats: {supported}."
+            )
+
+        return normalized
 
 
 @app.post("/api/library/{library_id}/export_bundle")
@@ -489,20 +510,18 @@ def export_bundle(library_id: str, body: ExportBundleRequest):
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         for fmt in body.formats:
-            f = fmt.lower()
-            # Validator ensures these are valid formats
-            if f == "m3u":
+            text = _render_export_tracks(tracks, fmt)
+            if fmt == "m3u":
                 fname = "library.m3u"
-            elif f == "serato":
+            elif fmt == "serato":
                 fname = "library_serato.csv"
-            elif f == "rekordbox":
+            elif fmt == "rekordbox":
                 fname = "library_rekordbox.xml"
-            elif f == "traktor":
+            elif fmt == "traktor":
                 fname = "library_traktor.nml"
             else:  # f == "txt"
                 fname = "library_tracklist.txt"
             
-            text = _render_export_tracks(tracks, fmt)
             z.writestr(fname, text)
 
     return Response(
