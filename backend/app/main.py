@@ -23,7 +23,7 @@ from .parsers import (
 
 app = FastAPI(title="BeatPorter v0.6")
 
-SUPPORTED_EXPORT_FORMATS = ("m3u", "serato", "rekordbox", "traktor")
+SUPPORTED_EXPORT_FORMATS = ("m3u", "serato", "rekordbox", "traktor", "txt")
 
 # Track library access times for cleanup
 LIBRARIES: Dict[str, Library] = {}
