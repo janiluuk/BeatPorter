@@ -438,11 +438,10 @@ def export_library(
     lib = get_library_or_404(library_id)
     
     # Validate format early
-    valid_formats = {"m3u", "serato", "rekordbox", "traktor", "txt"}
-    if format.lower() not in valid_formats:
+    if format.lower() not in SUPPORTED_EXPORT_FORMATS:
         raise HTTPException(
             status_code=400, 
-            detail=f"Invalid format '{format}'. Must be one of: {', '.join(valid_formats)}"
+            detail=f"Invalid format '{format}'. Must be one of: {', '.join(SUPPORTED_EXPORT_FORMATS)}"
         )
     
     tracks = lib.tracks
@@ -523,7 +522,6 @@ def export_bundle(library_id: str, body: ExportBundleRequest):
             else:  # f == "txt"
                 fname = "library_tracklist.txt"
             
-            text = _render_export_tracks(tracks, fmt)
             z.writestr(fname, text)
 
     return Response(
