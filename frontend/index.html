@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BeatPorter - DJ Library Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .main-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        
+        #dropzone {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 60px 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9ff;
+            margin-bottom: 30px;
+        }
+        
+        #dropzone:hover, #dropzone.dragover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+            transform: scale(1.02);
+        }
+        
+        #dropzone-text {
+            font-size: 1.4em;
+            color: #667eea;
+            font-weight: 500;
+        }
+        
+        #dropzone-subtext {
+            margin-top: 10px;
+            color: #888;
+            font-size: 0.95em;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #e0e7ff;
+            color: #667eea;
+        }
+        
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        #library-info {
+            padding: 15px;
+            background: #f8f9ff;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        #library-info.visible {
+            display: block;
+        }
+        
+        #library-info h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        #library-info p {
+            margin: 5px 0;
+            color: #555;
+        }
+        
+        #track-browser {
+            display: none;
+        }
+        
+        #track-browser.visible {
+            display: block;
+        }
+        
+        .browser-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        #track-search-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 15px;
+            border: 2px solid #e0e7ff;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+        
+        #track-sort-select {
+            padding: 10px 15px;
+            border: 2px solid #e0e7ff;
+            border-radius: 8px;
+            font-size: 1em;
+            background: white;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            margin-bottom: 15px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        thead {
+            background: #667eea;
+            color: white;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e7ff;
+        }
+        
+        tbody tr:hover {
+            background: #f8f9ff;
+        }
+        
+        #track-pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        #debug-log {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        #debug-log.visible {
+            display: block;
+        }
+        
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px 0;
+        }
+        
+        .log-info { color: #60a5fa; }
+        .log-success { color: #34d399; }
+        .log-error { color: #f87171; }
+        .log-warning { color: #fbbf24; }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.visible {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h2 {
+            color: #667eea;
+        }
+        
+        .close-modal {
+            background: #e0e7ff;
+            color: #667eea;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-card {
+            background: #f8f9ff;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-label {
+            color: #888;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎵 BeatPorter</h1>
+            <p>Convert, clean, and manage your DJ library files</p>
+        </header>
+        
+        <div class="main-card">
+            <!-- Dropzone -->
+            <div id="dropzone">
+                <div id="dropzone-text">📁 Drop your playlist file here</div>
+                <div id="dropzone-subtext">or click to browse (Rekordbox XML, Serato CSV, Traktor NML, M3U)</div>
+            </div>
+            <input type="file" id="file-input" style="display: none;" accept=".xml,.csv,.nml,.m3u,.m3u8">
+            
+            <!-- Library Info -->
+            <div id="library-info">
+                <h3>Library Loaded</h3>
+                <p><strong>Format:</strong> <span id="lib-format">-</span></p>
+                <p><strong>Tracks:</strong> <span id="lib-tracks">0</span></p>
+                <p><strong>Playlists:</strong> <span id="lib-playlists">0</span></p>
+                <p><strong>Library ID:</strong> <span id="lib-id">-</span></p>
+            </div>
+            
+            <!-- Controls -->
+            <div class="controls">
+                <button id="btn-tracks" class="btn-primary" disabled>View Tracks</button>
+                <button id="btn-duplicates" class="btn-secondary" disabled>Find Duplicates</button>
+                <button id="btn-metadata" class="btn-secondary" disabled>Check Metadata</button>
+                <button id="btn-health" class="btn-secondary" disabled>Health Check</button>
+                <button id="btn-smart-playlist" class="btn-secondary" disabled>Smart Playlist</button>
+                <button id="btn-merge" class="btn-secondary" disabled>Merge Playlists</button>
+                <button id="btn-stats" class="btn-secondary" disabled>Statistics</button>
+                <button id="btn-export-main" class="btn-success" disabled>Export</button>
+            </div>
+            
+            <!-- Track Browser -->
+            <div id="track-browser">
+                <h3 style="margin-bottom: 15px; color: #667eea;">Track Browser</h3>
+                <div class="browser-controls">
+                    <input type="text" id="track-search-input" placeholder="Search tracks...">
+                    <select id="track-sort-select">
+                        <option value="title">Sort by Title</option>
+                        <option value="artist">Sort by Artist</option>
+                        <option value="bpm">Sort by BPM</option>
+                        <option value="year">Sort by Year</option>
+                    </select>
+                </div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Title</th>
+                                <th>Artist</th>
+                                <th>BPM</th>
+                                <th>Key</th>
+                                <th>Year</th>
+                            </tr>
+                        </thead>
+                        <tbody id="track-tbody">
+                        </tbody>
+                    </table>
+                </div>
+                <div id="track-pagination">
+                    <button id="track-prev" class="btn-secondary">← Previous</button>
+                    <span id="track-page-label">Page 1</span>
+                    <button id="track-next" class="btn-secondary">Next →</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Debug Log -->
+        <div class="main-card">
+            <button id="btn-toggle-log" class="btn-secondary">Toggle Debug Log</button>
+            <div id="debug-log" class="visible">
+                <div class="log-entry log-info">🚀 BeatPorter ready. Drop a file to start.</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Stats Modal -->
+    <div id="stats-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Library Statistics</h2>
+                <button class="close-modal" onclick="closeStatsModal()">Close</button>
+            </div>
+            <div id="stats-content"></div>
+        </div>
+    </div>
+    
+    <script>
+        let libraryId = null;
+        let allTracks = [];
+        let currentPage = 1;
+        const tracksPerPage = 50;
+        
+        // Dropzone handlers
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('file-input');
+        const debugLog = document.getElementById('debug-log');
+        
+        dropzone.addEventListener('click', () => fileInput.click());
+        
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+        
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('dragover');
+        });
+        
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) uploadFile(file);
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) uploadFile(file);
+        });
+        
+        // Logging
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            const icon = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : '📝';
+            entry.textContent = `${icon} ${new Date().toLocaleTimeString()}: ${message}`;
+            debugLog.appendChild(entry);
+            debugLog.scrollTop = debugLog.scrollHeight;
+        }
+        
+        // Upload file
+        async function uploadFile(file) {
+            log(`Uploading ${file.name}...`, 'info');
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch('/api/import', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Upload failed');
+                }
+                
+                const data = await response.json();
+                log(`Library loaded! ${data.track_count} tracks, ${data.playlist_count} playlists`, 'success');
+                
+                libraryId = data.library_id;
+                updateLibraryInfo(data);
+                enableControls();
+                loadTracks();
+            } catch (err) {
+                log(`Error: ${err.message}`, 'error');
+            }
+        }
+        
+        // Update library info
+        function updateLibraryInfo(data) {
+            document.getElementById('lib-format').textContent = data.source_format;
+            document.getElementById('lib-tracks').textContent = data.track_count;
+            document.getElementById('lib-playlists').textContent = data.playlist_count;
+            document.getElementById('lib-id').textContent = data.library_id.substring(0, 8) + '...';
+            document.getElementById('library-info').classList.add('visible');
+        }
+        
+        // Enable controls
+        function enableControls() {
+            const buttons = ['btn-tracks', 'btn-duplicates', 'btn-metadata', 'btn-health', 
+                           'btn-smart-playlist', 'btn-merge', 'btn-stats', 'btn-export-main'];
+            buttons.forEach(id => {
+                document.getElementById(id).disabled = false;
+            });
+        }
+        
+        // Load tracks
+        async function loadTracks() {
+            try {
+                const response = await fetch(`/api/library/${libraryId}/tracks`);
+                const data = await response.json();
+                allTracks = data.tracks || [];
+                log(`Loaded ${allTracks.length} tracks`, 'info');
+            } catch (err) {
+                log(`Error loading tracks: ${err.message}`, 'error');
+            }
+        }
+        
+        // Display tracks
+        function displayTracks() {
+            const tbody = document.getElementById('track-tbody');
+            tbody.innerHTML = '';
+            
+            const start = (currentPage - 1) * tracksPerPage;
+            const end = start + tracksPerPage;
+            const pageItems = allTracks.slice(start, end);
+            
+            pageItems.forEach((track, idx) => {
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${start + idx + 1}</td>
+                    <td>${track.title || '-'}</td>
+                    <td>${track.artist || '-'}</td>
+                    <td>${track.bpm || '-'}</td>
+                    <td>${track.key || '-'}</td>
+                    <td>${track.year || '-'}</td>
+                `;
+            });
+            
+            document.getElementById('track-page-label').textContent = 
+                `Page ${currentPage} of ${Math.ceil(allTracks.length / tracksPerPage)}`;
+            
+            document.getElementById('track-prev').disabled = currentPage === 1;
+            document.getElementById('track-next').disabled = end >= allTracks.length;
+        }
+        
+        // Button handlers
+        document.getElementById('btn-tracks').addEventListener('click', () => {
+            const browser = document.getElementById('track-browser');
+            if (browser.classList.contains('visible')) {
+                browser.classList.remove('visible');
+            } else {
+                browser.classList.add('visible');
+                displayTracks();
+            }
+        });
+        
+        document.getElementById('btn-toggle-log').addEventListener('click', () => {
+            debugLog.classList.toggle('visible');
+        });
+        
+        document.getElementById('track-prev').addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                displayTracks();
+            }
+        });
+        
+        document.getElementById('track-next').addEventListener('click', () => {
+            if (currentPage < Math.ceil(allTracks.length / tracksPerPage)) {
+                currentPage++;
+                displayTracks();
+            }
+        });
+        
+        document.getElementById('btn-stats').addEventListener('click', async () => {
+            try {
+                const response = await fetch(`/api/library/${libraryId}/stats`);
+                const data = await response.json();
+                displayStats(data);
+            } catch (err) {
+                log(`Error loading stats: ${err.message}`, 'error');
+            }
+        });
+        
+        function displayStats(data) {
+            const content = document.getElementById('stats-content');
+            content.innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">${data.total_tracks || 0}</div>
+                        <div class="stat-label">Total Tracks</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${data.total_playlists || 0}</div>
+                        <div class="stat-label">Playlists</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${data.avg_bpm ? data.avg_bpm.toFixed(0) : '-'}</div>
+                        <div class="stat-label">Average BPM</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${data.total_playtime_minutes ? Math.round(data.total_playtime_minutes) : '-'}</div>
+                        <div class="stat-label">Total Minutes</div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('stats-modal').classList.add('visible');
+        }
+        
+        function closeStatsModal() {
+            document.getElementById('stats-modal').classList.remove('visible');
+        }
+        
+        document.getElementById('btn-export-main').addEventListener('click', async () => {
+            if (!libraryId) return;
+            try {
+                log('Exporting library as M3U...', 'info');
+                const response = await fetch(`/api/library/${libraryId}/export?format=m3u`, {
+                    method: 'POST'
+                });
+                const text = await response.text();
+                downloadFile('library.m3u', text);
+                log('Export complete!', 'success');
+            } catch (err) {
+                log(`Export error: ${err.message}`, 'error');
+            }
+        });
+        
+        function downloadFile(filename, content) {
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        document.getElementById('btn-duplicates').addEventListener('click', async () => {
+            try {
+                log('Finding duplicates...', 'info');
+                const response = await fetch(`/api/library/${libraryId}/duplicates`);
+                const data = await response.json();
+                const count = data.groups ? data.groups.length : 0;
+                log(`Found ${count} potential duplicate groups`, count > 0 ? 'warning' : 'success');
+            } catch (err) {
+                log(`Error: ${err.message}`, 'error');
+            }
+        });
+        
+        document.getElementById('btn-metadata').addEventListener('click', async () => {
+            try {
+                log('Checking metadata issues...', 'info');
+                const response = await fetch(`/api/library/${libraryId}/metadata_issues`);
+                const data = await response.json();
+                const issueCount = Object.values(data.issues || {}).reduce((sum, arr) => sum + arr.length, 0);
+                log(`Found ${issueCount} metadata issues`, issueCount > 0 ? 'warning' : 'success');
+            } catch (err) {
+                log(`Error: ${err.message}`, 'error');
+            }
+        });
+        
+        document.getElementById('btn-health').addEventListener('click', async () => {
+            try {
+                log('Running health check...', 'info');
+                const response = await fetch(`/api/library/${libraryId}/health`);
+                const data = await response.json();
+                const total = Object.values(data.issues || {}).reduce((sum, arr) => sum + arr.length, 0);
+                log(`Health check complete. ${total} potential issues found`, total > 0 ? 'warning' : 'success');
+            } catch (err) {
+                log(`Error: ${err.message}`, 'error');
+            }
+        });
+    </script>
+</body>
+</html>

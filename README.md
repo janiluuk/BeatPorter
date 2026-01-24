@@ -3,7 +3,8 @@
 
 BeatPorter is a tiny web app + API that takes the chaos of DJ library files
 and turns it into something clean, searchable, and portable.
-<img width="2722" height="1826" alt="Screenshot from 2025-11-30 19-55-17" src="https://github.com/user-attachments/assets/d5b45bcc-3ac7-4394-a9d7-a8dc6219b2f0" />
+
+![BeatPorter - Initial View](https://github.com/user-attachments/assets/92caa463-28be-4975-a8e7-c19fb929cc7c)
 
 Drag in a playlist file and BeatPorter will:
 - detect its format (Rekordbox, Serato, Traktor, M3U),
@@ -69,6 +70,20 @@ and a live log of what the backend is doing. It’s meant to be quick to
 use in practice and easy to evolve.
 
 ---
+
+## Screenshots
+
+### Import & Library Overview
+![Library Loaded](https://github.com/user-attachments/assets/8b073ee9-f768-4d8e-95bb-df4b7d803e8e)
+*After importing a playlist, you get an overview of your library with all tools enabled.*
+
+### Track Browser
+![Track Browser](https://github.com/user-attachments/assets/b715f64a-0c86-4f55-ae21-bf2fd863e449)
+*Browse and search through your tracks with sortable columns and pagination.*
+
+### Statistics
+![Statistics Modal](https://github.com/user-attachments/assets/955b1c2f-33e3-40d2-8317-c7497c831253)
+*Get quick insights about your library: track count, BPM averages, total playtime, and more.*
 
 ## Running the app
 
@@ -355,3 +370,78 @@ BeatPorter is deliberately small and opinionated. It’s not trying to
 replace a full DJ library manager – it’s trying to sit on the side,
 be your neutral translator + janitor, and make it easier to move
 between ecosystems without losing your mind (or your crates).
+
+---
+
+## Roadmap
+
+BeatPorter is focused on staying lean and practical, but here are some features and improvements on the horizon:
+
+### Near-term (Next few releases)
+
+- **🎨 Enhanced UI Features**
+  - Dark/light mode toggle
+  - Drag-and-drop track reordering within playlists
+  - Keyboard shortcuts for common actions
+  - Bulk track selection and operations
+
+- **🔧 Advanced Library Management**
+  - Auto-save library state to localStorage for quick recovery
+  - Support for importing multiple files at once
+  - Playlist folders and hierarchical organization
+  - Custom metadata fields and tags
+
+- **📊 Better Analytics**
+  - Visual charts for BPM distribution, year distribution, and key analysis
+  - Energy level analysis and visualization
+  - Genre detection and classification
+  - Playlist similarity comparison
+
+### Mid-term
+
+- **🔄 Format Improvements**
+  - Support for additional formats (Engine DJ, VirtualDJ, Denon)
+  - Better metadata preservation across conversions
+  - Cue point and beatgrid support
+  - Artwork/cover art management
+
+- **🤖 Smart Features**
+  - AI-powered duplicate detection improvements
+  - Automatic playlist generation based on mood/energy
+  - Smart recommendations for track order
+  - Automatic BPM and key detection for files
+
+- **💾 Persistence Options**
+  - Optional PostgreSQL/SQLite backend for larger libraries
+  - Export/import library as portable JSON
+  - Cloud storage integration (Dropbox, Google Drive)
+  - Multi-user support with shared libraries
+
+### Long-term Ideas
+
+- **🎵 Audio Analysis**
+  - Direct audio file analysis (no DJ software needed)
+  - Waveform visualization
+  - Harmonic mixing suggestions
+  - Audio fingerprinting for better duplicate detection
+
+- **🌐 Collaboration**
+  - Share playlists with other DJs
+  - Public playlist gallery
+  - Collaborative playlist editing
+  - Version control for library changes
+
+- **📱 Mobile Support**
+  - Progressive Web App (PWA) support
+  - Touch-optimized interface
+  - Offline mode
+  - Mobile file picker integration
+
+### Community Contributions Welcome!
+
+BeatPorter is open to community input. If you have ideas, feature requests, or want to contribute:
+- Open an issue on GitHub with your suggestion
+- Submit a pull request with improvements
+- Share your use cases and workflows
+
+The goal is to keep BeatPorter simple and focused, but flexible enough to handle real DJ workflows.
