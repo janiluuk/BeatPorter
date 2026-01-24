@@ -576,19 +576,19 @@
             content.innerHTML = `
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-value">${data.total_tracks || 0}</div>
+                        <div class="stat-value">${data.track_count || 0}</div>
                         <div class="stat-label">Total Tracks</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value">${data.total_playlists || 0}</div>
+                        <div class="stat-value">${data.playlist_count || 0}</div>
                         <div class="stat-label">Playlists</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value">${data.avg_bpm ? data.avg_bpm.toFixed(0) : '-'}</div>
+                        <div class="stat-value">${data.bpm && data.bpm.avg ? data.bpm.avg.toFixed(0) : '-'}</div>
                         <div class="stat-label">Average BPM</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value">${data.total_playtime_minutes ? Math.round(data.total_playtime_minutes) : '-'}</div>
+                        <div class="stat-value">${data.duration && data.duration.total_minutes ? data.duration.total_minutes : '-'}</div>
                         <div class="stat-label">Total Minutes</div>
                     </div>
                 </div>
