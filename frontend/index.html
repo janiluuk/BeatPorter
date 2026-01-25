@@ -171,6 +171,75 @@
             border: 1px solid rgba(245, 158, 11, 0.3);
         }
         
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid rgba(139, 92, 246, 0.3);
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 1em;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+            position: relative;
+            bottom: -2px;
+        }
+        
+        .tab:hover {
+            color: #a78bfa;
+            background: rgba(139, 92, 246, 0.1);
+        }
+        
+        .tab.active {
+            color: #a78bfa;
+            border-bottom-color: #8b5cf6;
+            font-weight: 600;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Status Bar */
+        .status-bar {
+            padding: 8px 15px;
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 6px;
+            margin-bottom: 15px;
+            display: none;
+            font-size: 0.9em;
+            color: #cbd5e1;
+        }
+        
+        .status-bar.visible {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .status-item strong {
+            color: #a78bfa;
+        }
+        
         #library-info {
             padding: 15px;
             background: rgba(139, 92, 246, 0.1);
@@ -440,85 +509,104 @@
                 <span>📤</span> Upload New Library
             </button>
             
-            <!-- Library Info -->
-            <div id="library-info">
-                <h3>Library Loaded</h3>
-                <p><strong>Format:</strong> <span id="lib-format">-</span></p>
-                <p><strong>Tracks:</strong> <span id="lib-tracks">0</span></p>
-                <p><strong>Playlists:</strong> <span id="lib-playlists">0</span></p>
-                <p><strong>Library ID:</strong> <span id="lib-id">-</span></p>
+            <!-- Status Bar (compact library info) -->
+            <div id="status-bar" class="status-bar">
+                <div class="status-item">
+                    <strong>Format:</strong> <span id="status-format">-</span>
+                </div>
+                <div class="status-item">
+                    <strong>Tracks:</strong> <span id="status-tracks">0</span>
+                </div>
+                <div class="status-item">
+                    <strong>Playlists:</strong> <span id="status-playlists">0</span>
+                </div>
+                <div class="status-item">
+                    <strong>Library ID:</strong> <span id="status-lib-id">-</span>
+                </div>
             </div>
             
-            <!-- Controls -->
-            <div class="controls">
-                <button id="btn-tracks" class="btn-primary" disabled>
-                    <span>📋</span> View Tracks
-                </button>
-                <button id="btn-duplicates" class="btn-secondary" disabled>
-                    <span>🔍</span> Find Duplicates
-                </button>
-                <button id="btn-metadata" class="btn-secondary" disabled>
-                    <span>🏷️</span> Check Metadata
-                </button>
-                <button id="btn-health" class="btn-secondary" disabled>
-                    <span>❤️</span> Health Check
-                </button>
-                <button id="btn-smart-playlist" class="btn-secondary" disabled>
-                    <span>✨</span> Smart Playlist
-                </button>
-                <button id="btn-merge" class="btn-secondary" disabled>
-                    <span>🔀</span> Merge Playlists
-                </button>
-                <button id="btn-stats" class="btn-secondary" disabled>
-                    <span>📊</span> Statistics
-                </button>
-                <div class="export-dropdown">
-                    <button id="btn-export-main" class="btn-success" disabled>
-                        <span>💾</span> Export ▼
-                    </button>
-                    <div id="export-dropdown-menu" class="export-dropdown-content">
-                        <button onclick="exportLibrary('m3u')">📄 Export as M3U</button>
-                        <button onclick="exportLibrary('rekordbox')">🎛️ Export as Rekordbox</button>
-                        <button onclick="exportLibrary('traktor')">🎚️ Export as Traktor</button>
-                        <button onclick="exportLibrary('txt')">📝 Export as TXT</button>
+            <!-- Tabs -->
+            <div id="tabs-container" style="display: none;">
+                <div class="tabs">
+                    <button class="tab active" data-tab="overview">📊 Overview</button>
+                    <button class="tab" data-tab="tracks">📋 Tracks</button>
+                    <button class="tab" data-tab="tools">🛠️ Tools</button>
+                </div>
+                
+                <!-- Overview Tab -->
+                <div id="tab-overview" class="tab-content active">
+                    <div class="controls">
+                        <button id="btn-duplicates" class="btn-secondary">
+                            <span>🔍</span> Find Duplicates
+                        </button>
+                        <button id="btn-metadata" class="btn-secondary">
+                            <span>🏷️</span> Check Metadata
+                        </button>
+                        <button id="btn-health" class="btn-secondary">
+                            <span>❤️</span> Health Check
+                        </button>
+                        <button id="btn-smart-playlist" class="btn-secondary">
+                            <span>✨</span> Smart Playlist
+                        </button>
+                        <button id="btn-merge" class="btn-secondary">
+                            <span>🔀</span> Merge Playlists
+                        </button>
+                        <button id="btn-stats" class="btn-secondary">
+                            <span>📊</span> Statistics
+                        </button>
+                        <div class="export-dropdown">
+                            <button id="btn-export-main" class="btn-success">
+                                <span>💾</span> Export ▼
+                            </button>
+                            <div id="export-dropdown-menu" class="export-dropdown-content">
+                                <button onclick="exportLibrary('m3u')">📄 Export as M3U</button>
+                                <button onclick="exportLibrary('rekordbox')">🎛️ Export as Rekordbox</button>
+                                <button onclick="exportLibrary('traktor')">🎚️ Export as Traktor</button>
+                                <button onclick="exportLibrary('txt')">📝 Export as TXT</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-            
-            <!-- Track Browser -->
-            <div id="track-browser">
-                <h3 style="margin-bottom: 15px; color: #a78bfa;">Track Browser</h3>
-                <div class="browser-controls">
-                    <input type="text" id="track-search-input" placeholder="Search tracks...">
-                    <select id="track-sort-select">
-                        <option value="title">Sort by Title</option>
-                        <option value="artist">Sort by Artist</option>
-                        <option value="bpm">Sort by BPM</option>
-                        <option value="year">Sort by Year</option>
-                    </select>
+                
+                <!-- Tracks Tab -->
+                <div id="tab-tracks" class="tab-content">
+                    <div class="browser-controls">
+                        <input type="text" id="track-search-input" placeholder="Search tracks...">
+                        <select id="track-sort-select">
+                            <option value="title">Sort by Title</option>
+                            <option value="artist">Sort by Artist</option>
+                            <option value="bpm">Sort by BPM</option>
+                            <option value="year">Sort by Year</option>
+                        </select>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Title</th>
+                                    <th>Artist</th>
+                                    <th>Genre</th>
+                                    <th>BPM</th>
+                                    <th>Key</th>
+                                    <th>Year</th>
+                                    <th>Import Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="track-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="track-pagination">
+                        <button id="track-prev" class="btn-secondary">← Previous</button>
+                        <span id="track-page-label" style="color: #cbd5e1;">Page 1</span>
+                        <button id="track-next" class="btn-secondary">Next →</button>
+                    </div>
                 </div>
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Title</th>
-                                <th>Artist</th>
-                                <th>Genre</th>
-                                <th>BPM</th>
-                                <th>Key</th>
-                                <th>Year</th>
-                                <th>Import Date</th>
-                            </tr>
-                        </thead>
-                        <tbody id="track-tbody">
-                        </tbody>
-                    </table>
-                </div>
-                <div id="track-pagination">
-                    <button id="track-prev" class="btn-secondary">← Previous</button>
-                    <span id="track-page-label" style="color: #cbd5e1;">Page 1</span>
-                    <button id="track-next" class="btn-secondary">Next →</button>
+                
+                <!-- Tools Tab -->
+                <div id="tab-tools" class="tab-content">
+                    <p style="color: #94a3b8; text-align: center; padding: 40px;">Tools and utilities coming soon...</p>
                 </div>
             </div>
         </div>
@@ -667,25 +755,47 @@
         
         // Update library info
         function updateLibraryInfo(data) {
-            document.getElementById('lib-format').textContent = data.source_format;
-            document.getElementById('lib-tracks').textContent = data.track_count;
-            document.getElementById('lib-playlists').textContent = data.playlist_count;
-            document.getElementById('lib-id').textContent = data.library_id.substring(0, 8) + '...';
-            document.getElementById('library-info').classList.add('visible');
+            // Update status bar
+            document.getElementById('status-format').textContent = data.source_format;
+            document.getElementById('status-tracks').textContent = data.track_count;
+            document.getElementById('status-playlists').textContent = data.playlist_count;
+            document.getElementById('status-lib-id').textContent = data.library_id.substring(0, 8) + '...';
+            document.getElementById('status-bar').classList.add('visible');
             
             // Hide dropzone and show upload button
             document.getElementById('dropzone').style.display = 'none';
             document.getElementById('btn-upload-new').style.display = 'inline-flex';
+            
+            // Show tabs
+            document.getElementById('tabs-container').style.display = 'block';
         }
         
         // Enable controls
         function enableControls() {
-            const buttons = ['btn-tracks', 'btn-duplicates', 'btn-metadata', 'btn-health', 
+            const buttons = ['btn-duplicates', 'btn-metadata', 'btn-health', 
                            'btn-smart-playlist', 'btn-merge', 'btn-stats', 'btn-export-main'];
             buttons.forEach(id => {
-                document.getElementById(id).disabled = false;
+                const btn = document.getElementById(id);
+                if (btn) btn.disabled = false;
             });
         }
+        
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.dataset.tab;
+                
+                // Update active tab
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // Update active content
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(`tab-${tabName}`).classList.add('active');
+            });
+        });
         
         // Load tracks
         async function loadTracks() {
@@ -785,16 +895,6 @@
         }
         
         // Button handlers
-        document.getElementById('btn-tracks').addEventListener('click', () => {
-            const browser = document.getElementById('track-browser');
-            if (browser.classList.contains('visible')) {
-                browser.classList.remove('visible');
-            } else {
-                browser.classList.add('visible');
-                displayTracks();
-            }
-        });
-        
         document.getElementById('btn-toggle-log').addEventListener('click', () => {
             debugLog.classList.toggle('visible');
             const icon = document.getElementById('log-toggle-icon');

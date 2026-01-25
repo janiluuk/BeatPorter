@@ -45,9 +45,8 @@ def test_core_ui_elements_present():
     parser.feed(resp.text)
     # Drag & drop entry area present
     assert "dropzone" in parser.ids
-    # Track browser elements
+    # Track browser elements (now in tabs)
     for elem_id in [
-        "track-browser",
         "track-search-input",
         "track-sort-select",
         "track-tbody",
@@ -57,9 +56,16 @@ def test_core_ui_elements_present():
         "track-page-label",
     ]:
         assert elem_id in parser.ids
+    # Tab elements
+    for elem_id in [
+        "tabs-container",
+        "tab-overview",
+        "tab-tracks",
+        "tab-tools",
+    ]:
+        assert elem_id in parser.ids
     # Core action buttons
     for btn_id in [
-        "btn-tracks",
         "btn-duplicates",
         "btn-metadata",
         "btn-health",
@@ -87,8 +93,9 @@ def test_buttons_are_initially_disabled_until_library_loaded():
     parser = IdCollector()
     parser.feed(resp.text)
     buttons_by_id = {b.get("id"): b for b in parser.buttons if b.get("id")}
+    # Buttons are no longer initially disabled in the new tab-based UI
+    # They are shown/hidden with the tabs container
     for key in [
-        "btn-tracks",
         "btn-duplicates",
         "btn-metadata",
         "btn-health",
@@ -99,4 +106,3 @@ def test_buttons_are_initially_disabled_until_library_loaded():
     ]:
         btn = buttons_by_id.get(key)
         assert btn is not None
-        assert "disabled" in btn
