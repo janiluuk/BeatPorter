@@ -13,9 +13,41 @@
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #0f172a;
             min-height: 100vh;
             padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3), transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.3), transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(59, 130, 246, 0.2), transparent 50%);
+            animation: backgroundMove 20s ease infinite;
+            z-index: -1;
+        }
+        
+        @keyframes backgroundMove {
+            0%, 100% {
+                transform: translate(0, 0) scale(1);
+            }
+            25% {
+                transform: translate(5%, -5%) scale(1.05);
+            }
+            50% {
+                transform: translate(-5%, 5%) scale(1.02);
+            }
+            75% {
+                transform: translate(5%, 5%) scale(1.05);
+            }
         }
         
         .container {
@@ -41,39 +73,41 @@
         }
         
         .main-card {
-            background: white;
+            background: rgba(30, 41, 59, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(148, 163, 184, 0.2);
             border-radius: 15px;
             padding: 30px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
             margin-bottom: 20px;
         }
         
         #dropzone {
-            border: 3px dashed #667eea;
+            border: 3px dashed rgba(139, 92, 246, 0.5);
             border-radius: 10px;
             padding: 60px 40px;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s;
-            background: #f8f9ff;
+            background: rgba(139, 92, 246, 0.05);
             margin-bottom: 30px;
         }
         
         #dropzone:hover, #dropzone.dragover {
-            border-color: #764ba2;
-            background: #f0f2ff;
+            border-color: #8b5cf6;
+            background: rgba(139, 92, 246, 0.1);
             transform: scale(1.02);
         }
         
         #dropzone-text {
             font-size: 1.4em;
-            color: #667eea;
+            color: #a78bfa;
             font-weight: 500;
         }
         
         #dropzone-subtext {
             margin-top: 10px;
-            color: #888;
+            color: #94a3b8;
             font-size: 0.95em;
         }
         
@@ -92,41 +126,49 @@
             cursor: pointer;
             transition: all 0.2s;
             font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
         }
         
         button:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
         }
         
         button:disabled {
-            opacity: 0.5;
+            opacity: 0.4;
             cursor: not-allowed;
         }
         
         .btn-primary {
-            background: #667eea;
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
             color: white;
+            border: 1px solid rgba(139, 92, 246, 0.3);
         }
         
         .btn-secondary {
-            background: #e0e7ff;
-            color: #667eea;
+            background: rgba(139, 92, 246, 0.1);
+            color: #a78bfa;
+            border: 1px solid rgba(139, 92, 246, 0.3);
         }
         
         .btn-success {
-            background: #10b981;
+            background: linear-gradient(135deg, #10b981, #059669);
             color: white;
+            border: 1px solid rgba(16, 185, 129, 0.3);
         }
         
         .btn-warning {
-            background: #f59e0b;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
             color: white;
+            border: 1px solid rgba(245, 158, 11, 0.3);
         }
         
         #library-info {
             padding: 15px;
-            background: #f8f9ff;
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.2);
             border-radius: 8px;
             margin-bottom: 20px;
             display: none;
@@ -137,13 +179,13 @@
         }
         
         #library-info h3 {
-            color: #667eea;
+            color: #a78bfa;
             margin-bottom: 10px;
         }
         
         #library-info p {
             margin: 5px 0;
-            color: #555;
+            color: #cbd5e1;
         }
         
         #track-browser {
@@ -165,17 +207,24 @@
             flex: 1;
             min-width: 200px;
             padding: 10px 15px;
-            border: 2px solid #e0e7ff;
+            border: 1px solid rgba(139, 92, 246, 0.3);
             border-radius: 8px;
             font-size: 1em;
+            background: rgba(15, 23, 42, 0.6);
+            color: #e2e8f0;
+        }
+        
+        #track-search-input::placeholder {
+            color: #64748b;
         }
         
         #track-sort-select {
             padding: 10px 15px;
-            border: 2px solid #e0e7ff;
+            border: 1px solid rgba(139, 92, 246, 0.3);
             border-radius: 8px;
             font-size: 1em;
-            background: white;
+            background: rgba(15, 23, 42, 0.6);
+            color: #e2e8f0;
         }
         
         .table-container {
@@ -189,18 +238,19 @@
         }
         
         thead {
-            background: #667eea;
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
             color: white;
         }
         
         th, td {
             padding: 12px;
             text-align: left;
-            border-bottom: 1px solid #e0e7ff;
+            border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+            color: #e2e8f0;
         }
         
         tbody tr:hover {
-            background: #f8f9ff;
+            background: rgba(139, 92, 246, 0.1);
         }
         
         #track-pagination {
@@ -243,7 +293,8 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
             z-index: 1000;
             align-items: center;
             justify-content: center;
@@ -254,7 +305,9 @@
         }
         
         .modal-content {
-            background: white;
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(139, 92, 246, 0.3);
             padding: 30px;
             border-radius: 15px;
             max-width: 600px;
@@ -271,13 +324,13 @@
         }
         
         .modal-header h2 {
-            color: #667eea;
+            color: #a78bfa;
         }
         
         .close-modal {
-            background: #e0e7ff;
-            color: #667eea;
-            border: none;
+            background: rgba(139, 92, 246, 0.2);
+            color: #a78bfa;
+            border: 1px solid rgba(139, 92, 246, 0.3);
             padding: 8px 16px;
             border-radius: 6px;
             cursor: pointer;
@@ -291,7 +344,8 @@
         }
         
         .stat-card {
-            background: #f8f9ff;
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.2);
             padding: 15px;
             border-radius: 8px;
             text-align: center;
@@ -300,11 +354,11 @@
         .stat-value {
             font-size: 2em;
             font-weight: bold;
-            color: #667eea;
+            color: #a78bfa;
         }
         
         .stat-label {
-            color: #888;
+            color: #94a3b8;
             margin-top: 5px;
         }
     </style>
@@ -335,19 +389,35 @@
             
             <!-- Controls -->
             <div class="controls">
-                <button id="btn-tracks" class="btn-primary" disabled>View Tracks</button>
-                <button id="btn-duplicates" class="btn-secondary" disabled>Find Duplicates</button>
-                <button id="btn-metadata" class="btn-secondary" disabled>Check Metadata</button>
-                <button id="btn-health" class="btn-secondary" disabled>Health Check</button>
-                <button id="btn-smart-playlist" class="btn-secondary" disabled>Smart Playlist</button>
-                <button id="btn-merge" class="btn-secondary" disabled>Merge Playlists</button>
-                <button id="btn-stats" class="btn-secondary" disabled>Statistics</button>
-                <button id="btn-export-main" class="btn-success" disabled>Export</button>
+                <button id="btn-tracks" class="btn-primary" disabled>
+                    <span>📋</span> View Tracks
+                </button>
+                <button id="btn-duplicates" class="btn-secondary" disabled>
+                    <span>🔍</span> Find Duplicates
+                </button>
+                <button id="btn-metadata" class="btn-secondary" disabled>
+                    <span>🏷️</span> Check Metadata
+                </button>
+                <button id="btn-health" class="btn-secondary" disabled>
+                    <span>❤️</span> Health Check
+                </button>
+                <button id="btn-smart-playlist" class="btn-secondary" disabled>
+                    <span>✨</span> Smart Playlist
+                </button>
+                <button id="btn-merge" class="btn-secondary" disabled>
+                    <span>🔀</span> Merge Playlists
+                </button>
+                <button id="btn-stats" class="btn-secondary" disabled>
+                    <span>📊</span> Statistics
+                </button>
+                <button id="btn-export-main" class="btn-success" disabled>
+                    <span>💾</span> Export
+                </button>
             </div>
             
             <!-- Track Browser -->
             <div id="track-browser">
-                <h3 style="margin-bottom: 15px; color: #667eea;">Track Browser</h3>
+                <h3 style="margin-bottom: 15px; color: #a78bfa;">Track Browser</h3>
                 <div class="browser-controls">
                     <input type="text" id="track-search-input" placeholder="Search tracks...">
                     <select id="track-sort-select">
@@ -375,7 +445,7 @@
                 </div>
                 <div id="track-pagination">
                     <button id="track-prev" class="btn-secondary">← Previous</button>
-                    <span id="track-page-label">Page 1</span>
+                    <span id="track-page-label" style="color: #cbd5e1;">Page 1</span>
                     <button id="track-next" class="btn-secondary">Next →</button>
                 </div>
             </div>
@@ -383,7 +453,9 @@
         
         <!-- Debug Log -->
         <div class="main-card">
-            <button id="btn-toggle-log" class="btn-secondary">Toggle Debug Log</button>
+            <button id="btn-toggle-log" class="btn-secondary">
+                <span>📜</span> Toggle Debug Log
+            </button>
             <div id="debug-log" class="visible">
                 <div class="log-entry log-info">🚀 BeatPorter ready. Drop a file to start.</div>
             </div>
