@@ -435,6 +435,11 @@
             </div>
             <input type="file" id="file-input" style="display: none;" accept=".xml,.csv,.nml,.m3u,.m3u8">
             
+            <!-- Upload New Button (shown when library is loaded) -->
+            <button id="btn-upload-new" class="btn-secondary" style="display: none; margin-bottom: 15px;">
+                <span>📤</span> Upload New Library
+            </button>
+            
             <!-- Library Info -->
             <div id="library-info">
                 <h3>Library Loaded</h3>
@@ -614,6 +619,13 @@
             if (file) uploadFile(file);
         });
         
+        // Upload new button handler
+        document.getElementById('btn-upload-new').addEventListener('click', () => {
+            document.getElementById('dropzone').style.display = 'block';
+            document.getElementById('btn-upload-new').style.display = 'none';
+            fileInput.click();
+        });
+        
         // Logging
         function log(message, type = 'info') {
             const entry = document.createElement('div');
@@ -660,6 +672,10 @@
             document.getElementById('lib-playlists').textContent = data.playlist_count;
             document.getElementById('lib-id').textContent = data.library_id.substring(0, 8) + '...';
             document.getElementById('library-info').classList.add('visible');
+            
+            // Hide dropzone and show upload button
+            document.getElementById('dropzone').style.display = 'none';
+            document.getElementById('btn-upload-new').style.display = 'inline-flex';
         }
         
         // Enable controls
