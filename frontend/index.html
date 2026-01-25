@@ -1,0 +1,1122 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BeatPorter - DJ Library Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #0f172a;
+            min-height: 100vh;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3), transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.3), transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(59, 130, 246, 0.2), transparent 50%);
+            animation: backgroundMove 20s ease infinite;
+            z-index: -1;
+        }
+        
+        @keyframes backgroundMove {
+            0%, 100% {
+                transform: translate(0, 0) scale(1);
+            }
+            25% {
+                transform: translate(5%, -5%) scale(1.05);
+            }
+            50% {
+                transform: translate(-5%, 5%) scale(1.02);
+            }
+            75% {
+                transform: translate(5%, 5%) scale(1.05);
+            }
+        }
+        
+        @media (prefers-reduced-motion: reduce) {
+            body::before {
+                animation: none;
+            }
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .main-card {
+            background: rgba(30, 41, 59, 0.9);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            margin-bottom: 20px;
+        }
+        
+        #dropzone {
+            border: 3px dashed rgba(139, 92, 246, 0.5);
+            border-radius: 10px;
+            padding: 60px 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(139, 92, 246, 0.05);
+            margin-bottom: 30px;
+        }
+        
+        #dropzone:hover, #dropzone.dragover {
+            border-color: #8b5cf6;
+            background: rgba(139, 92, 246, 0.1);
+            transform: scale(1.02);
+        }
+        
+        #dropzone-text {
+            font-size: 1.4em;
+            color: #a78bfa;
+            font-weight: 500;
+        }
+        
+        #dropzone-subtext {
+            margin-top: 10px;
+            color: #94a3b8;
+            font-size: 0.95em;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+        }
+        
+        button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            color: white;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+        }
+        
+        .btn-secondary {
+            background: rgba(139, 92, 246, 0.1);
+            color: #a78bfa;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid rgba(139, 92, 246, 0.3);
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 1em;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+            position: relative;
+            bottom: -2px;
+        }
+        
+        .tab:hover {
+            color: #a78bfa;
+            background: rgba(139, 92, 246, 0.1);
+        }
+        
+        .tab.active {
+            color: #a78bfa;
+            border-bottom-color: #8b5cf6;
+            font-weight: 600;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Status Bar */
+        .status-bar {
+            padding: 8px 15px;
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 6px;
+            margin-bottom: 15px;
+            display: none;
+            font-size: 0.9em;
+            color: #cbd5e1;
+        }
+        
+        .status-bar.visible {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .status-item strong {
+            color: #a78bfa;
+        }
+        
+        #library-info {
+            padding: 15px;
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        #library-info.visible {
+            display: block;
+        }
+        
+        #library-info h3 {
+            color: #a78bfa;
+            margin-bottom: 10px;
+        }
+        
+        #library-info p {
+            margin: 5px 0;
+            color: #cbd5e1;
+        }
+        
+        #track-browser {
+            display: none;
+        }
+        
+        #track-browser.visible {
+            display: block;
+        }
+        
+        .browser-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        #track-search-input {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 15px;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 8px;
+            font-size: 1em;
+            background: rgba(15, 23, 42, 0.6);
+            color: #e2e8f0;
+        }
+        
+        #track-search-input::placeholder {
+            color: #64748b;
+        }
+        
+        #track-sort-select {
+            padding: 10px 15px;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 8px;
+            font-size: 1em;
+            background: rgba(15, 23, 42, 0.6);
+            color: #e2e8f0;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            margin-bottom: 15px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        thead {
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            color: white;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+            color: #e2e8f0;
+        }
+        
+        tbody tr:hover {
+            background: rgba(139, 92, 246, 0.1);
+        }
+        
+        #track-pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        #debug-log {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        #debug-log.visible {
+            display: block;
+        }
+        
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px 0;
+        }
+        
+        .log-info { color: #60a5fa; }
+        .log-success { color: #34d399; }
+        .log-error { color: #f87171; }
+        .log-warning { color: #fbbf24; }
+        
+        .export-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .export-dropdown-content {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            right: 0;
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 1000;
+            margin-bottom: 5px;
+            min-width: 180px;
+        }
+        
+        .export-dropdown-content.visible {
+            display: block;
+        }
+        
+        .export-dropdown-content button {
+            width: 100%;
+            text-align: left;
+            padding: 12px 20px;
+            border: none;
+            background: transparent;
+            color: #e2e8f0;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-radius: 0;
+            font-size: 0.95em;
+        }
+        
+        .export-dropdown-content button:first-child {
+            border-radius: 8px 8px 0 0;
+        }
+        
+        .export-dropdown-content button:last-child {
+            border-radius: 0 0 8px 8px;
+        }
+        
+        .export-dropdown-content button:hover {
+            background: rgba(139, 92, 246, 0.2);
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.visible {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h2 {
+            color: #a78bfa;
+        }
+        
+        .close-modal {
+            background: rgba(139, 92, 246, 0.2);
+            color: #a78bfa;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-card {
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #a78bfa;
+        }
+        
+        .stat-label {
+            color: #94a3b8;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎵 BeatPorter</h1>
+            <p>Convert, clean, and manage your DJ library files</p>
+        </header>
+        
+        <div class="main-card">
+            <!-- Dropzone -->
+            <div id="dropzone">
+                <div id="dropzone-text">📁 Drop your playlist file here</div>
+                <div id="dropzone-subtext">or click to browse (Rekordbox XML, Serato CSV, Traktor NML, M3U)</div>
+            </div>
+            <input type="file" id="file-input" style="display: none;" accept=".xml,.csv,.nml,.m3u,.m3u8">
+            
+            <!-- Upload New Button (shown when library is loaded) -->
+            <button id="btn-upload-new" class="btn-secondary" style="display: none; margin-bottom: 15px;">
+                <span>📤</span> Upload New Library
+            </button>
+            
+            <!-- Status Bar (compact library info) -->
+            <div id="status-bar" class="status-bar">
+                <div class="status-item">
+                    <strong>Format:</strong> <span id="status-format">-</span>
+                </div>
+                <div class="status-item">
+                    <strong>Tracks:</strong> <span id="status-tracks">0</span>
+                </div>
+                <div class="status-item">
+                    <strong>Playlists:</strong> <span id="status-playlists">0</span>
+                </div>
+                <div class="status-item">
+                    <strong>Library ID:</strong> <span id="status-lib-id">-</span>
+                </div>
+            </div>
+            
+            <!-- Tabs -->
+            <div id="tabs-container" style="display: none;">
+                <div class="tabs">
+                    <button class="tab active" data-tab="overview">📊 Overview</button>
+                    <button class="tab" data-tab="tracks">📋 Tracks</button>
+                    <button class="tab" data-tab="tools">🛠️ Tools</button>
+                </div>
+                
+                <!-- Overview Tab -->
+                <div id="tab-overview" class="tab-content active">
+                    <div class="controls">
+                        <button id="btn-duplicates" class="btn-secondary">
+                            <span>🔍</span> Find Duplicates
+                        </button>
+                        <button id="btn-metadata" class="btn-secondary">
+                            <span>🏷️</span> Check Metadata
+                        </button>
+                        <button id="btn-health" class="btn-secondary">
+                            <span>❤️</span> Health Check
+                        </button>
+                        <button id="btn-smart-playlist" class="btn-secondary">
+                            <span>✨</span> Smart Playlist
+                        </button>
+                        <button id="btn-merge" class="btn-secondary">
+                            <span>🔀</span> Merge Playlists
+                        </button>
+                        <button id="btn-stats" class="btn-secondary">
+                            <span>📊</span> Statistics
+                        </button>
+                        <div class="export-dropdown">
+                            <button id="btn-export-main" class="btn-success">
+                                <span>💾</span> Export ▼
+                            </button>
+                            <div id="export-dropdown-menu" class="export-dropdown-content">
+                                <button onclick="exportLibrary('m3u')">📄 Export as M3U</button>
+                                <button onclick="exportLibrary('rekordbox')">🎛️ Export as Rekordbox</button>
+                                <button onclick="exportLibrary('traktor')">🎚️ Export as Traktor</button>
+                                <button onclick="exportLibrary('txt')">📝 Export as TXT</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Tracks Tab -->
+                <div id="tab-tracks" class="tab-content">
+                    <div class="browser-controls">
+                        <input type="text" id="track-search-input" placeholder="Search tracks...">
+                        <select id="track-sort-select">
+                            <option value="title">Sort by Title</option>
+                            <option value="artist">Sort by Artist</option>
+                            <option value="bpm">Sort by BPM</option>
+                            <option value="year">Sort by Year</option>
+                        </select>
+                    </div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Title</th>
+                                    <th>Artist</th>
+                                    <th>Genre</th>
+                                    <th>BPM</th>
+                                    <th>Key</th>
+                                    <th>Year</th>
+                                    <th>Import Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="track-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="track-pagination">
+                        <button id="track-prev" class="btn-secondary">← Previous</button>
+                        <span id="track-page-label" style="color: #cbd5e1;">Page 1</span>
+                        <button id="track-next" class="btn-secondary">Next →</button>
+                    </div>
+                </div>
+                
+                <!-- Tools Tab -->
+                <div id="tab-tools" class="tab-content">
+                    <p style="color: #94a3b8; text-align: center; padding: 40px;">Tools and utilities coming soon...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Debug Log -->
+        <div class="main-card">
+            <button id="btn-toggle-log" class="btn-secondary">
+                <span id="log-toggle-icon">▼</span> <span>📜</span> Debug Log
+            </button>
+            <div id="debug-log">
+                <div class="log-entry log-info">🚀 BeatPorter ready. Drop a file to start.</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Stats Modal -->
+    <div id="stats-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Library Statistics</h2>
+                <button class="close-modal" onclick="closeStatsModal()">Close</button>
+            </div>
+            <div id="stats-content"></div>
+        </div>
+    </div>
+    
+    <!-- Smart Playlist Modal -->
+    <div id="smart-playlist-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create Smart Playlist</h2>
+                <button class="close-modal" onclick="closeSmartPlaylistModal()">Close</button>
+            </div>
+            <div style="margin-top: 20px;">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; color: #cbd5e1;">Playlist Name:</label>
+                    <input type="text" id="playlist-name" placeholder="My Playlist" style="width: 100%; padding: 10px; border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; background: rgba(15, 23, 42, 0.6); color: #e2e8f0;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; color: #cbd5e1;">Keyword (optional):</label>
+                    <input type="text" id="playlist-keyword" placeholder="techno, house, etc." style="width: 100%; padding: 10px; border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; background: rgba(15, 23, 42, 0.6); color: #e2e8f0;">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; color: #cbd5e1;">Min BPM:</label>
+                        <input type="number" id="playlist-min-bpm" placeholder="120" style="width: 100%; padding: 10px; border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; background: rgba(15, 23, 42, 0.6); color: #e2e8f0;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; color: #cbd5e1;">Max BPM:</label>
+                        <input type="number" id="playlist-max-bpm" placeholder="140" style="width: 100%; padding: 10px; border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; background: rgba(15, 23, 42, 0.6); color: #e2e8f0;">
+                    </div>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 5px; color: #cbd5e1;">Target Minutes:</label>
+                    <input type="number" id="playlist-target-minutes" placeholder="60" value="60" style="width: 100%; padding: 10px; border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; background: rgba(15, 23, 42, 0.6); color: #e2e8f0;">
+                </div>
+                <button onclick="createSmartPlaylist()" class="btn-primary" style="width: 100%; justify-content: center;">
+                    <span>✨</span> Create Playlist
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let libraryId = null;
+        let allTracks = [];
+        let filteredTracks = [];
+        let currentPage = 1;
+        const tracksPerPage = 50;
+        let currentSearchQuery = '';
+        let currentSortBy = 'title';
+        
+        // Dropzone handlers
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('file-input');
+        const debugLog = document.getElementById('debug-log');
+        
+        dropzone.addEventListener('click', () => fileInput.click());
+        
+        dropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropzone.classList.add('dragover');
+        });
+        
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('dragover');
+        });
+        
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) uploadFile(file);
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) uploadFile(file);
+        });
+        
+        // Upload new button handler
+        document.getElementById('btn-upload-new').addEventListener('click', () => {
+            document.getElementById('dropzone').style.display = 'block';
+            document.getElementById('btn-upload-new').style.display = 'none';
+            fileInput.click();
+        });
+        
+        // Logging
+        function log(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            const icon = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : '📝';
+            entry.textContent = `${icon} ${new Date().toLocaleTimeString()}: ${message}`;
+            debugLog.appendChild(entry);
+            debugLog.scrollTop = debugLog.scrollHeight;
+        }
+        
+        // Upload file
+        async function uploadFile(file) {
+            log(`Uploading ${file.name}...`, 'info');
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch('/api/import', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Upload failed');
+                }
+                
+                const data = await response.json();
+                log(`Library loaded! ${data.track_count} tracks, ${data.playlist_count} playlists`, 'success');
+                
+                libraryId = data.library_id;
+                updateLibraryInfo(data);
+                enableControls();
+                loadTracks();
+            } catch (err) {
+                log(`Error: ${err.message}`, 'error');
+            }
+        }
+        
+        // Update library info
+        function updateLibraryInfo(data) {
+            // Update status bar
+            document.getElementById('status-format').textContent = data.source_format;
+            document.getElementById('status-tracks').textContent = data.track_count;
+            document.getElementById('status-playlists').textContent = data.playlist_count;
+            document.getElementById('status-lib-id').textContent = data.library_id.substring(0, 8) + '...';
+            document.getElementById('status-bar').classList.add('visible');
+            
+            // Hide dropzone and show upload button
+            document.getElementById('dropzone').style.display = 'none';
+            document.getElementById('btn-upload-new').style.display = 'inline-flex';
+            
+            // Show tabs
+            document.getElementById('tabs-container').style.display = 'block';
+        }
+        
+        // Enable controls
+        function enableControls() {
+            const buttons = ['btn-duplicates', 'btn-metadata', 'btn-health', 
+                           'btn-smart-playlist', 'btn-merge', 'btn-stats', 'btn-export-main'];
+            buttons.forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) btn.disabled = false;
+            });
+        }
+        
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.dataset.tab;
+                
+                // Update active tab
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // Update active content
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                document.getElementById(`tab-${tabName}`).classList.add('active');
+            });
+        });
+        
+        // Load tracks
+        async function loadTracks() {
+            try {
+                const response = await fetch(`/api/library/${libraryId}/tracks`);
+                const data = await response.json();
+                allTracks = data.tracks || [];
+                filteredTracks = [...allTracks];
+                log(`Loaded ${allTracks.length} tracks`, 'info');
+            } catch (err) {
+                log(`Error loading tracks: ${err.message}`, 'error');
+            }
+        }
+        
+        // Filter and sort tracks
+        function filterAndSortTracks() {
+            // Filter by search query
+            if (currentSearchQuery) {
+                const query = currentSearchQuery.toLowerCase();
+                filteredTracks = allTracks.filter(track => {
+                    const searchText = `${track.title || ''} ${track.artist || ''} ${track.year || ''} ${track.key || ''}`.toLowerCase();
+                    return searchText.includes(query);
+                });
+            } else {
+                filteredTracks = [...allTracks];
+            }
+            
+            // Sort tracks
+            filteredTracks.sort((a, b) => {
+                let aVal, bVal;
+                switch (currentSortBy) {
+                    case 'title':
+                        aVal = (a.title || '').toLowerCase();
+                        bVal = (b.title || '').toLowerCase();
+                        break;
+                    case 'artist':
+                        aVal = (a.artist || '').toLowerCase();
+                        bVal = (b.artist || '').toLowerCase();
+                        break;
+                    case 'bpm':
+                        aVal = a.bpm || 0;
+                        bVal = b.bpm || 0;
+                        return aVal - bVal;
+                    case 'year':
+                        aVal = a.year || 0;
+                        bVal = b.year || 0;
+                        return aVal - bVal;
+                    default:
+                        return 0;
+                }
+                return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+            });
+            
+            currentPage = 1;
+            displayTracks();
+        }
+        
+        // Display tracks
+        function displayTracks() {
+            const tbody = document.getElementById('track-tbody');
+            tbody.innerHTML = '';
+            
+            const start = (currentPage - 1) * tracksPerPage;
+            const end = start + tracksPerPage;
+            const pageItems = filteredTracks.slice(start, end);
+            
+            if (pageItems.length === 0 && filteredTracks.length === 0) {
+                const row = tbody.insertRow();
+                row.innerHTML = `<td colspan="8" style="text-align: center; color: #94a3b8; padding: 40px;">No tracks found${currentSearchQuery ? ` matching "${currentSearchQuery}"` : ''}</td>`;
+                document.getElementById('track-page-label').textContent = 'Page 0 of 0';
+                document.getElementById('track-prev').disabled = true;
+                document.getElementById('track-next').disabled = true;
+                return;
+            }
+            
+            pageItems.forEach((track, idx) => {
+                const row = tbody.insertRow();
+                const importDate = track.import_date || track.added_date || new Date().toISOString().split('T')[0];
+                row.innerHTML = `
+                    <td>${start + idx + 1}</td>
+                    <td>${track.title || '-'}</td>
+                    <td>${track.artist || '-'}</td>
+                    <td>${track.genre || '-'}</td>
+                    <td>${track.bpm || '-'}</td>
+                    <td>${track.key || '-'}</td>
+                    <td>${track.year || '-'}</td>
+                    <td>${importDate}</td>
+                `;
+            });
+            
+            const totalPages = Math.ceil(filteredTracks.length / tracksPerPage);
+            document.getElementById('track-page-label').textContent = 
+                `Page ${currentPage} of ${totalPages}`;
+            
+            document.getElementById('track-prev').disabled = currentPage === 1;
+            document.getElementById('track-next').disabled = end >= filteredTracks.length;
+        }
+        
+        // Button handlers
+        document.getElementById('btn-toggle-log').addEventListener('click', () => {
+            debugLog.classList.toggle('visible');
+            const icon = document.getElementById('log-toggle-icon');
+            icon.textContent = debugLog.classList.contains('visible') ? '▲' : '▼';
+        });
+        
+        document.getElementById('track-prev').addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                displayTracks();
+            }
+        });
+        
+        document.getElementById('track-next').addEventListener('click', () => {
+            if (currentPage < Math.ceil(filteredTracks.length / tracksPerPage)) {
+                currentPage++;
+                displayTracks();
+            }
+        });
+        
+        // Search functionality
+        document.getElementById('track-search-input').addEventListener('input', (e) => {
+            currentSearchQuery = e.target.value.trim();
+            filterAndSortTracks();
+        });
+        
+        // Sort functionality
+        document.getElementById('track-sort-select').addEventListener('change', (e) => {
+            currentSortBy = e.target.value;
+            filterAndSortTracks();
+        });
+        
+        document.getElementById('btn-stats').addEventListener('click', async () => {
+            try {
+                const response = await fetch(`/api/library/${libraryId}/stats`);
+                const data = await response.json();
+                displayStats(data);
+            } catch (err) {
+                log(`Error loading stats: ${err.message}`, 'error');
+            }
+        });
+        
+        function displayStats(data) {
+            const content = document.getElementById('stats-content');
+            content.innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">${data.track_count || 0}</div>
+                        <div class="stat-label">Total Tracks</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${data.playlist_count || 0}</div>
+                        <div class="stat-label">Playlists</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${data.bpm && data.bpm.avg ? data.bpm.avg.toFixed(0) : '-'}</div>
+                        <div class="stat-label">Average BPM</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${data.duration && data.duration.total_minutes ? data.duration.total_minutes : '-'}</div>
+                        <div class="stat-label">Total Minutes</div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('stats-modal').classList.add('visible');
+        }
+        
+        function closeStatsModal() {
+            document.getElementById('stats-modal').classList.remove('visible');
+        }
+        
+        document.getElementById('btn-export-main').addEventListener('click', () => {
+            const dropdown = document.getElementById('export-dropdown-menu');
+            dropdown.classList.toggle('visible');
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('export-dropdown-menu');
+            const exportBtn = document.getElementById('btn-export-main');
+            if (dropdown && !exportBtn.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.classList.remove('visible');
+            }
+        });
+        
+        async function exportLibrary(format) {
+            if (!libraryId) return;
+            
+            const dropdown = document.getElementById('export-dropdown-menu');
+            dropdown.classList.remove('visible');
+            
+            const formatNames = {
+                'm3u': 'M3U',
+                'rekordbox': 'Rekordbox XML',
+                'traktor': 'Traktor NML',
+                'txt': 'TXT'
+            };
+            
+            const extensions = {
+                'm3u': '.m3u',
+                'rekordbox': '_rekordbox.xml',
+                'traktor': '_traktor.nml',
+                'txt': '_tracklist.txt'
+            };
+            
+            try {
+                log(`Exporting library as ${formatNames[format]}...`, 'info');
+                const response = await fetch(`/api/library/${libraryId}/export?format=${format}`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Export failed');
+                }
+                
+                const text = await response.text();
+                downloadFile(`library${extensions[format]}`, text);
+                log(`Export complete!`, 'success');
+            } catch (err) {
+                log(`Export error: ${err.message}`, 'error');
+            }
+        }
+        
+        function downloadFile(filename, content) {
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        document.getElementById('btn-duplicates').addEventListener('click', async () => {
+            try {
+                log('Finding duplicates...', 'info');
+                const response = await fetch(`/api/library/${libraryId}/duplicates`);
+                const data = await response.json();
+                const count = data.groups ? data.groups.length : 0;
+                log(`Found ${count} potential duplicate groups`, count > 0 ? 'warning' : 'success');
+            } catch (err) {
+                log(`Error: ${err.message}`, 'error');
+            }
+        });
+        
+        document.getElementById('btn-metadata').addEventListener('click', async () => {
+            try {
+                log('Checking metadata issues...', 'info');
+                const response = await fetch(`/api/library/${libraryId}/metadata_issues`);
+                const data = await response.json();
+                const issueCount = Object.values(data.issues || {}).reduce((sum, arr) => sum + arr.length, 0);
+                log(`Found ${issueCount} metadata issues`, issueCount > 0 ? 'warning' : 'success');
+            } catch (err) {
+                log(`Error: ${err.message}`, 'error');
+            }
+        });
+        
+        document.getElementById('btn-health').addEventListener('click', async () => {
+            try {
+                log('Running health check...', 'info');
+                const response = await fetch(`/api/library/${libraryId}/health`);
+                const data = await response.json();
+                const total = Object.values(data.issues || {}).reduce((sum, arr) => sum + arr.length, 0);
+                log(`Health check complete. ${total} potential issues found`, total > 0 ? 'warning' : 'success');
+            } catch (err) {
+                log(`Error: ${err.message}`, 'error');
+            }
+        });
+        
+        // Smart Playlist
+        document.getElementById('btn-smart-playlist').addEventListener('click', () => {
+            document.getElementById('smart-playlist-modal').classList.add('visible');
+        });
+        
+        function closeSmartPlaylistModal() {
+            document.getElementById('smart-playlist-modal').classList.remove('visible');
+        }
+        
+        async function createSmartPlaylist() {
+            const name = document.getElementById('playlist-name').value.trim() || 'Smart Playlist';
+            const keyword = document.getElementById('playlist-keyword').value.trim();
+            const minBpm = parseInt(document.getElementById('playlist-min-bpm').value);
+            const maxBpm = parseInt(document.getElementById('playlist-max-bpm').value);
+            const targetMinutes = parseInt(document.getElementById('playlist-target-minutes').value) || 60;
+            
+            const params = {
+                playlist_name: name,
+                target_minutes: targetMinutes,
+                sort_by: 'bpm'
+            };
+            
+            if (keyword) params.keyword = keyword;
+            if (!isNaN(minBpm)) params.min_bpm = minBpm;
+            if (!isNaN(maxBpm)) params.max_bpm = maxBpm;
+            
+            try {
+                log('Creating smart playlist...', 'info');
+                const response = await fetch(`/api/library/${libraryId}/generate_playlist_v2`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(params)
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to create playlist');
+                }
+                
+                const data = await response.json();
+                log(`Created playlist "${name}" with ${data.track_count} tracks (~${data.approx_duration_minutes} min)`, 'success');
+                closeSmartPlaylistModal();
+                
+                // Clear form
+                document.getElementById('playlist-name').value = '';
+                document.getElementById('playlist-keyword').value = '';
+                document.getElementById('playlist-min-bpm').value = '';
+                document.getElementById('playlist-max-bpm').value = '';
+                document.getElementById('playlist-target-minutes').value = '60';
+            } catch (err) {
+                log(`Error creating playlist: ${err.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
