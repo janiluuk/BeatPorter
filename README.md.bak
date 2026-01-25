@@ -4,7 +4,7 @@
 BeatPorter is a tiny web app + API that takes the chaos of DJ library files
 and turns it into something clean, searchable, and portable.
 
-![BeatPorter - Initial View (Dark Mode)](https://github.com/user-attachments/assets/e855d3c1-f99f-4b1d-90e5-6e1bac262564)
+![BeatPorter - Initial View](https://github.com/user-attachments/assets/92caa463-28be-4975-a8e7-c19fb929cc7c)
 
 Drag in a playlist file and BeatPorter will:
 - detect its format (Rekordbox, Serato, Traktor, M3U),
@@ -65,33 +65,25 @@ From a single import you can:
     - top artists
     - approximate total playtime
 
-The UI features dark and light modes, keyboard shortcuts for power users,
-bulk track operations, drag-and-drop reordering, and visual analytics charts.
-It's designed to be quick to use in practice and easy to evolve.
+The UI is intentionally minimal: a single dropzone, some buttons,
+and a live log of what the backend is doing. It’s meant to be quick to
+use in practice and easy to evolve.
 
 ---
 
 ## Screenshots
 
-### Dark Mode (Default)
-![BeatPorter - Dark Mode](https://github.com/user-attachments/assets/e855d3c1-f99f-4b1d-90e5-6e1bac262564)
-*Clean, modern dark interface with a single dropzone to get started.*
+### Import & Library Overview
+![Library Loaded](https://github.com/user-attachments/assets/8b073ee9-f768-4d8e-95bb-df4b7d803e8e)
+*After importing a playlist, you get an overview of your library with all tools enabled.*
 
-### Light Mode
-![BeatPorter - Light Mode](https://github.com/user-attachments/assets/4619219d-26fd-40b0-846e-82cd98afdca0)
-*Toggle to light mode with a single click (or press `T`) for comfortable viewing in any environment.*
+### Track Browser
+![Track Browser](https://github.com/user-attachments/assets/b715f64a-0c86-4f55-ae21-bf2fd863e449)
+*Browse and search through your tracks with sortable columns and pagination.*
 
-### Track Browser with Bulk Selection
-![Track Browser with Bulk Operations](https://github.com/user-attachments/assets/d7b492db-3a57-4489-a691-f4d1d5bf977d)
-*Browse and search through your tracks with sortable columns, pagination, and bulk selection for batch operations.*
-
-### Analytics Dashboard
-![Analytics Modal](https://github.com/user-attachments/assets/514181bd-f494-4e63-b953-61aabba27e6e)
-*Visual charts showing BPM distribution, year distribution, key analysis, and genre breakdown of your library.*
-
-### Keyboard Shortcuts
-![Keyboard Shortcuts Modal](https://github.com/user-attachments/assets/1e62b5df-0f2f-432f-9f5d-d56b2ef7613d)
-*Power user friendly with keyboard shortcuts for all common actions. Press `?` to view all available shortcuts.*
+### Statistics
+![Statistics Modal](https://github.com/user-attachments/assets/955b1c2f-33e3-40d2-8317-c7497c831253)
+*Get quick insights about your library: track count, BPM averages, total playtime, and more.*
 
 ## Running the app
 
