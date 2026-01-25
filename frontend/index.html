@@ -499,9 +499,11 @@
                                 <th>#</th>
                                 <th>Title</th>
                                 <th>Artist</th>
+                                <th>Genre</th>
                                 <th>BPM</th>
                                 <th>Key</th>
                                 <th>Year</th>
+                                <th>Import Date</th>
                             </tr>
                         </thead>
                         <tbody id="track-tbody">
@@ -736,7 +738,7 @@
             
             if (pageItems.length === 0 && filteredTracks.length === 0) {
                 const row = tbody.insertRow();
-                row.innerHTML = `<td colspan="6" style="text-align: center; color: #94a3b8; padding: 40px;">No tracks found${currentSearchQuery ? ` matching "${currentSearchQuery}"` : ''}</td>`;
+                row.innerHTML = `<td colspan="8" style="text-align: center; color: #94a3b8; padding: 40px;">No tracks found${currentSearchQuery ? ` matching "${currentSearchQuery}"` : ''}</td>`;
                 document.getElementById('track-page-label').textContent = 'Page 0 of 0';
                 document.getElementById('track-prev').disabled = true;
                 document.getElementById('track-next').disabled = true;
@@ -745,13 +747,16 @@
             
             pageItems.forEach((track, idx) => {
                 const row = tbody.insertRow();
+                const importDate = track.import_date || track.added_date || new Date().toISOString().split('T')[0];
                 row.innerHTML = `
                     <td>${start + idx + 1}</td>
                     <td>${track.title || '-'}</td>
                     <td>${track.artist || '-'}</td>
+                    <td>${track.genre || '-'}</td>
                     <td>${track.bpm || '-'}</td>
                     <td>${track.key || '-'}</td>
                     <td>${track.year || '-'}</td>
+                    <td>${importDate}</td>
                 `;
             });
             
