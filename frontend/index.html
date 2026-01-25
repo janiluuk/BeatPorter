@@ -292,6 +292,57 @@
         .log-error { color: #f87171; }
         .log-warning { color: #fbbf24; }
         
+        .export-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .export-dropdown-content {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            right: 0;
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 1000;
+            margin-bottom: 5px;
+            min-width: 180px;
+        }
+        
+        .export-dropdown-content.visible {
+            display: block;
+        }
+        
+        .export-dropdown-content button {
+            width: 100%;
+            text-align: left;
+            padding: 12px 20px;
+            border: none;
+            background: transparent;
+            color: #e2e8f0;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-radius: 0;
+            font-size: 0.95em;
+        }
+        
+        .export-dropdown-content button:first-child {
+            border-radius: 8px 8px 0 0;
+        }
+        
+        .export-dropdown-content button:last-child {
+            border-radius: 0 0 8px 8px;
+        }
+        
+        .export-dropdown-content button:hover {
+            background: rgba(139, 92, 246, 0.2);
+            transform: none;
+            box-shadow: none;
+        }
+        
         .modal {
             display: none;
             position: fixed;
@@ -416,9 +467,17 @@
                 <button id="btn-stats" class="btn-secondary" disabled>
                     <span>📊</span> Statistics
                 </button>
-                <button id="btn-export-main" class="btn-success" disabled>
-                    <span>💾</span> Export
-                </button>
+                <div class="export-dropdown">
+                    <button id="btn-export-main" class="btn-success" disabled>
+                        <span>💾</span> Export ▼
+                    </button>
+                    <div id="export-dropdown-menu" class="export-dropdown-content">
+                        <button onclick="exportLibrary('m3u')">📄 Export as M3U</button>
+                        <button onclick="exportLibrary('rekordbox')">🎛️ Export as Rekordbox</button>
+                        <button onclick="exportLibrary('traktor')">🎚️ Export as Traktor</button>
+                        <button onclick="exportLibrary('txt')">📝 Export as TXT</button>
+                    </div>
+                </div>
             </div>
             
             <!-- Track Browser -->
@@ -460,9 +519,9 @@
         <!-- Debug Log -->
         <div class="main-card">
             <button id="btn-toggle-log" class="btn-secondary">
-                <span>📜</span> Toggle Debug Log
+                <span id="log-toggle-icon">▼</span> <span>📜</span> Debug Log
             </button>
-            <div id="debug-log" class="visible">
+            <div id="debug-log">
                 <div class="log-entry log-info">🚀 BeatPorter ready. Drop a file to start.</div>
             </div>
         </div>
@@ -717,6 +776,8 @@
         
         document.getElementById('btn-toggle-log').addEventListener('click', () => {
             debugLog.classList.toggle('visible');
+            const icon = document.getElementById('log-toggle-icon');
+            icon.textContent = debugLog.classList.contains('visible') ? '▲' : '▼';
         });
         
         document.getElementById('track-prev').addEventListener('click', () => {
@@ -784,20 +845,57 @@
             document.getElementById('stats-modal').classList.remove('visible');
         }
         
-        document.getElementById('btn-export-main').addEventListener('click', async () => {
+        document.getElementById('btn-export-main').addEventListener('click', () => {
+            const dropdown = document.getElementById('export-dropdown-menu');
+            dropdown.classList.toggle('visible');
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('export-dropdown-menu');
+            const exportBtn = document.getElementById('btn-export-main');
+            if (dropdown && !exportBtn.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.classList.remove('visible');
+            }
+        });
+        
+        async function exportLibrary(format) {
             if (!libraryId) return;
+            
+            const dropdown = document.getElementById('export-dropdown-menu');
+            dropdown.classList.remove('visible');
+            
+            const formatNames = {
+                'm3u': 'M3U',
+                'rekordbox': 'Rekordbox XML',
+                'traktor': 'Traktor NML',
+                'txt': 'TXT'
+            };
+            
+            const extensions = {
+                'm3u': '.m3u',
+                'rekordbox': '_rekordbox.xml',
+                'traktor': '_traktor.nml',
+                'txt': '_tracklist.txt'
+            };
+            
             try {
-                log('Exporting library as M3U...', 'info');
-                const response = await fetch(`/api/library/${libraryId}/export?format=m3u`, {
+                log(`Exporting library as ${formatNames[format]}...`, 'info');
+                const response = await fetch(`/api/library/${libraryId}/export?format=${format}`, {
                     method: 'POST'
                 });
+                
+                if (!response.ok) {
+                    throw new Error('Export failed');
+                }
+                
                 const text = await response.text();
-                downloadFile('library.m3u', text);
-                log('Export complete!', 'success');
+                downloadFile(`library${extensions[format]}`, text);
+                log(`Export complete!`, 'success');
             } catch (err) {
                 log(`Export error: ${err.message}`, 'error');
             }
-        });
+        }
         
         function downloadFile(filename, content) {
             const blob = new Blob([content], { type: 'text/plain' });
