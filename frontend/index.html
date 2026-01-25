@@ -479,11 +479,51 @@
         </div>
     </div>
     
+    <!-- Smart Playlist Modal -->
+    <div id="smart-playlist-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create Smart Playlist</h2>
+                <button class="close-modal" onclick="closeSmartPlaylistModal()">Close</button>
+            </div>
+            <div style="margin-top: 20px;">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; color: #cbd5e1;">Playlist Name:</label>
+                    <input type="text" id="playlist-name" placeholder="My Playlist" style="width: 100%; padding: 10px; border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; background: rgba(15, 23, 42, 0.6); color: #e2e8f0;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; color: #cbd5e1;">Keyword (optional):</label>
+                    <input type="text" id="playlist-keyword" placeholder="techno, house, etc." style="width: 100%; padding: 10px; border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; background: rgba(15, 23, 42, 0.6); color: #e2e8f0;">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; color: #cbd5e1;">Min BPM:</label>
+                        <input type="number" id="playlist-min-bpm" placeholder="120" style="width: 100%; padding: 10px; border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; background: rgba(15, 23, 42, 0.6); color: #e2e8f0;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; color: #cbd5e1;">Max BPM:</label>
+                        <input type="number" id="playlist-max-bpm" placeholder="140" style="width: 100%; padding: 10px; border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; background: rgba(15, 23, 42, 0.6); color: #e2e8f0;">
+                    </div>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 5px; color: #cbd5e1;">Target Minutes:</label>
+                    <input type="number" id="playlist-target-minutes" placeholder="60" value="60" style="width: 100%; padding: 10px; border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; background: rgba(15, 23, 42, 0.6); color: #e2e8f0;">
+                </div>
+                <button onclick="createSmartPlaylist()" class="btn-primary" style="width: 100%; justify-content: center;">
+                    <span>✨</span> Create Playlist
+                </button>
+            </div>
+        </div>
+    </div>
+    
     <script>
         let libraryId = null;
         let allTracks = [];
+        let filteredTracks = [];
         let currentPage = 1;
         const tracksPerPage = 50;
+        let currentSearchQuery = '';
+        let currentSortBy = 'title';
         
         // Dropzone handlers
         const dropzone = document.getElementById('dropzone');
@@ -576,10 +616,54 @@
                 const response = await fetch(`/api/library/${libraryId}/tracks`);
                 const data = await response.json();
                 allTracks = data.tracks || [];
+                filteredTracks = [...allTracks];
                 log(`Loaded ${allTracks.length} tracks`, 'info');
             } catch (err) {
                 log(`Error loading tracks: ${err.message}`, 'error');
             }
+        }
+        
+        // Filter and sort tracks
+        function filterAndSortTracks() {
+            // Filter by search query
+            if (currentSearchQuery) {
+                const query = currentSearchQuery.toLowerCase();
+                filteredTracks = allTracks.filter(track => {
+                    const searchText = `${track.title || ''} ${track.artist || ''} ${track.year || ''} ${track.key || ''}`.toLowerCase();
+                    return searchText.includes(query);
+                });
+            } else {
+                filteredTracks = [...allTracks];
+            }
+            
+            // Sort tracks
+            filteredTracks.sort((a, b) => {
+                let aVal, bVal;
+                switch (currentSortBy) {
+                    case 'title':
+                        aVal = (a.title || '').toLowerCase();
+                        bVal = (b.title || '').toLowerCase();
+                        break;
+                    case 'artist':
+                        aVal = (a.artist || '').toLowerCase();
+                        bVal = (b.artist || '').toLowerCase();
+                        break;
+                    case 'bpm':
+                        aVal = a.bpm || 0;
+                        bVal = b.bpm || 0;
+                        return aVal - bVal;
+                    case 'year':
+                        aVal = a.year || 0;
+                        bVal = b.year || 0;
+                        return aVal - bVal;
+                    default:
+                        return 0;
+                }
+                return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+            });
+            
+            currentPage = 1;
+            displayTracks();
         }
         
         // Display tracks
@@ -589,7 +673,16 @@
             
             const start = (currentPage - 1) * tracksPerPage;
             const end = start + tracksPerPage;
-            const pageItems = allTracks.slice(start, end);
+            const pageItems = filteredTracks.slice(start, end);
+            
+            if (pageItems.length === 0 && filteredTracks.length === 0) {
+                const row = tbody.insertRow();
+                row.innerHTML = `<td colspan="6" style="text-align: center; color: #94a3b8; padding: 40px;">No tracks found${currentSearchQuery ? ` matching "${currentSearchQuery}"` : ''}</td>`;
+                document.getElementById('track-page-label').textContent = 'Page 0 of 0';
+                document.getElementById('track-prev').disabled = true;
+                document.getElementById('track-next').disabled = true;
+                return;
+            }
             
             pageItems.forEach((track, idx) => {
                 const row = tbody.insertRow();
@@ -603,11 +696,12 @@
                 `;
             });
             
+            const totalPages = Math.ceil(filteredTracks.length / tracksPerPage);
             document.getElementById('track-page-label').textContent = 
-                `Page ${currentPage} of ${Math.ceil(allTracks.length / tracksPerPage)}`;
+                `Page ${currentPage} of ${totalPages}`;
             
             document.getElementById('track-prev').disabled = currentPage === 1;
-            document.getElementById('track-next').disabled = end >= allTracks.length;
+            document.getElementById('track-next').disabled = end >= filteredTracks.length;
         }
         
         // Button handlers
@@ -633,10 +727,22 @@
         });
         
         document.getElementById('track-next').addEventListener('click', () => {
-            if (currentPage < Math.ceil(allTracks.length / tracksPerPage)) {
+            if (currentPage < Math.ceil(filteredTracks.length / tracksPerPage)) {
                 currentPage++;
                 displayTracks();
             }
+        });
+        
+        // Search functionality
+        document.getElementById('track-search-input').addEventListener('input', (e) => {
+            currentSearchQuery = e.target.value.trim();
+            filterAndSortTracks();
+        });
+        
+        // Sort functionality
+        document.getElementById('track-sort-select').addEventListener('change', (e) => {
+            currentSortBy = e.target.value;
+            filterAndSortTracks();
         });
         
         document.getElementById('btn-stats').addEventListener('click', async () => {
@@ -738,6 +844,59 @@
                 log(`Error: ${err.message}`, 'error');
             }
         });
+        
+        // Smart Playlist
+        document.getElementById('btn-smart-playlist').addEventListener('click', () => {
+            document.getElementById('smart-playlist-modal').classList.add('visible');
+        });
+        
+        function closeSmartPlaylistModal() {
+            document.getElementById('smart-playlist-modal').classList.remove('visible');
+        }
+        
+        async function createSmartPlaylist() {
+            const name = document.getElementById('playlist-name').value.trim() || 'Smart Playlist';
+            const keyword = document.getElementById('playlist-keyword').value.trim();
+            const minBpm = parseInt(document.getElementById('playlist-min-bpm').value);
+            const maxBpm = parseInt(document.getElementById('playlist-max-bpm').value);
+            const targetMinutes = parseInt(document.getElementById('playlist-target-minutes').value) || 60;
+            
+            const params = {
+                playlist_name: name,
+                target_minutes: targetMinutes,
+                sort_by: 'bpm'
+            };
+            
+            if (keyword) params.keyword = keyword;
+            if (!isNaN(minBpm)) params.min_bpm = minBpm;
+            if (!isNaN(maxBpm)) params.max_bpm = maxBpm;
+            
+            try {
+                log('Creating smart playlist...', 'info');
+                const response = await fetch(`/api/library/${libraryId}/generate_playlist_v2`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(params)
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to create playlist');
+                }
+                
+                const data = await response.json();
+                log(`Created playlist "${name}" with ${data.track_count} tracks (~${data.approx_duration_minutes} min)`, 'success');
+                closeSmartPlaylistModal();
+                
+                // Clear form
+                document.getElementById('playlist-name').value = '';
+                document.getElementById('playlist-keyword').value = '';
+                document.getElementById('playlist-min-bpm').value = '';
+                document.getElementById('playlist-max-bpm').value = '';
+            } catch (err) {
+                log(`Error creating playlist: ${err.message}`, 'error');
+            }
+        }
     </script>
 </body>
 </html>
