@@ -940,6 +940,18 @@
                             <div id="tags-list" style="margin-top: 15px; display: none;"></div>
                             <div id="custom-fields-list" style="margin-top: 15px; display: none;"></div>
                         </div>
+                        
+                        <!-- Playlist Similarity Section -->
+                        <div style="padding: 20px; background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 8px;">
+                            <h3 style="color: #a78bfa; margin-bottom: 15px;">🔍 Playlist Similarity</h3>
+                            <p style="color: #94a3b8; margin-bottom: 15px;">Find playlists with similar characteristics based on genre, key, and BPM.</p>
+                            <div style="display: flex; gap: 10px;">
+                                <button id="btn-find-similar" class="btn-secondary">
+                                    <span>🔍</span> Find Similar Playlists
+                                </button>
+                            </div>
+                            <div id="similarity-results" style="margin-top: 15px; display: none;"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2224,6 +2236,104 @@
         function closeEditMetadataModal() {
             document.getElementById('edit-metadata-modal').classList.remove('visible');
         }
+        
+        // ===== Playlist Similarity Functions =====
+        
+        document.getElementById('btn-find-similar').addEventListener('click', async () => {
+            if (!libraryId) {
+                log('No library loaded', 'error');
+                return;
+            }
+            
+            // Get all playlists
+            const playlists = Object.values(currentLibrary?.playlists || {});
+            
+            if (playlists.length === 0) {
+                log('No playlists available for comparison', 'error');
+                return;
+            }
+            
+            // For now, use the first playlist as the source
+            const sourcePlaylist = playlists[0];
+            
+            if (!sourcePlaylist || !sourcePlaylist.id) {
+                log('Invalid playlist selected', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(
+                    `/api/library/${libraryId}/playlists/${sourcePlaylist.id}/similar?min_similarity=0.3`
+                );
+                const data = await response.json();
+                
+                const container = document.getElementById('similarity-results');
+                container.innerHTML = '';
+                
+                let html = '<div style="color: #cbd5e1; margin-bottom: 10px;">';
+                html += `<strong>Similar to: ${data.source_playlist_name}</strong><br>`;
+                html += `<span style="color: #94a3b8; font-size: 0.9em;">`;
+                html += `${data.source_track_count} tracks`;
+                if (data.source_characteristics.avg_bpm) {
+                    html += ` | Avg BPM: ${data.source_characteristics.avg_bpm}`;
+                }
+                if (data.source_characteristics.genres && data.source_characteristics.genres.length > 0) {
+                    html += ` | Genres: ${data.source_characteristics.genres.join(', ')}`;
+                }
+                if (data.source_characteristics.keys && data.source_characteristics.keys.length > 0) {
+                    html += ` | Keys: ${data.source_characteristics.keys.join(', ')}`;
+                }
+                html += '</span></div>';
+                
+                if (data.similar_playlists && data.similar_playlists.length > 0) {
+                    html += '<div style="margin-top: 15px; display: grid; gap: 10px;">';
+                    
+                    data.similar_playlists.forEach(playlist => {
+                        const similarityPercent = Math.round(playlist.similarity_score * 100);
+                        html += '<div style="padding: 12px; background: rgba(139, 92, 246, 0.1); border-radius: 6px; border-left: 3px solid rgba(139, 92, 246, 0.5);">';
+                        html += `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">`;
+                        html += `<span style="color: #e2e8f0; font-weight: 500;">${playlist.playlist_name}</span>`;
+                        html += `<span style="color: #a78bfa; font-weight: bold;">${similarityPercent}% similar</span>`;
+                        html += '</div>';
+                        
+                        html += '<div style="color: #94a3b8; font-size: 0.85em;">';
+                        html += `${playlist.track_count} tracks`;
+                        if (playlist.avg_bpm) {
+                            html += ` | BPM: ${playlist.avg_bpm}`;
+                        }
+                        if (playlist.bpm_difference) {
+                            html += ` (±${playlist.bpm_difference})`;
+                        }
+                        html += '</div>';
+                        
+                        if (playlist.common_genres && playlist.common_genres.length > 0) {
+                            html += '<div style="color: #94a3b8; font-size: 0.85em; margin-top: 3px;">';
+                            html += `Common genres: ${playlist.common_genres.join(', ')}`;
+                            html += '</div>';
+                        }
+                        
+                        if (playlist.common_keys && playlist.common_keys.length > 0) {
+                            html += '<div style="color: #94a3b8; font-size: 0.85em; margin-top: 3px;">';
+                            html += `Common keys: ${playlist.common_keys.join(', ')}`;
+                            html += '</div>';
+                        }
+                        
+                        html += '</div>';
+                    });
+                    
+                    html += '</div>';
+                } else {
+                    html += '<div style="color: #94a3b8; margin-top: 10px;">No similar playlists found.</div>';
+                }
+                
+                container.innerHTML = html;
+                container.style.display = 'block';
+                
+                log(`Found ${data.total_found} similar playlist(s)`, 'success');
+            } catch (err) {
+                log(`Error finding similar playlists: ${err.message}`, 'error');
+            }
+        });
         
         // Try to load saved library on page load
         loadLibraryState();

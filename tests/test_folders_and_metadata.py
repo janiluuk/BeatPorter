@@ -376,3 +376,68 @@ def test_tracks_include_custom_fields_and_tags():
     assert "tags" in track
     assert track["custom_fields"]["energy"] == 9
     assert "favorite" in track["tags"]
+
+
+# ===== Playlist Similarity Tests =====
+
+def test_playlist_similarity_basic():
+    """Test basic playlist similarity comparison."""
+    library_id = _import_test_library()
+    
+    # Get tracks
+    resp = client.get(f"/api/library/{library_id}/tracks")
+    tracks = resp.json()
+    
+    # Add genre and BPM to tracks
+    for i, track in enumerate(tracks[:2]):
+        client.post(
+            f"/api/library/{library_id}/tracks/{track['id']}/custom_fields",
+            json={"custom_fields": {"genre": "Techno"}}
+        )
+    
+    # Create two playlists with similar characteristics
+    resp1 = client.post(
+        f"/api/library/{library_id}/generate_playlist_v2",
+        json={"playlist_name": "Techno Set 1", "target_minutes": 30}
+    )
+    playlist1_id = resp1.json()["playlist_id"]
+    
+    resp2 = client.post(
+        f"/api/library/{library_id}/generate_playlist_v2",
+        json={"playlist_name": "Techno Set 2", "target_minutes": 30}
+    )
+    playlist2_id = resp2.json()["playlist_id"]
+    
+    # Find similar playlists
+    resp3 = client.get(
+        f"/api/library/{library_id}/playlists/{playlist1_id}/similar"
+    )
+    assert resp3.status_code == 200
+    data = resp3.json()
+    
+    assert "source_playlist_id" in data
+    assert "similar_playlists" in data
+    assert data["source_playlist_id"] == playlist1_id
+
+
+def test_playlist_similarity_with_min_threshold():
+    """Test playlist similarity with minimum similarity threshold."""
+    library_id = _import_test_library()
+    
+    # Create playlist
+    resp1 = client.post(
+        f"/api/library/{library_id}/generate_playlist_v2",
+        json={"playlist_name": "Test Playlist", "target_minutes": 30}
+    )
+    playlist_id = resp1.json()["playlist_id"]
+    
+    # Find similar with high threshold
+    resp2 = client.get(
+        f"/api/library/{library_id}/playlists/{playlist_id}/similar?min_similarity=0.9"
+    )
+    assert resp2.status_code == 200
+    data = resp2.json()
+    
+    # With high threshold, may find fewer similar playlists
+    assert "similar_playlists" in data
+    assert isinstance(data["similar_playlists"], list)

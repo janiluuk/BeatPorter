@@ -1370,3 +1370,113 @@ def get_custom_field_keys(library_id: str):
     return {
         "custom_field_keys": sorted(list(all_keys))
     }
+
+
+# ===== Playlist Similarity Comparison =====
+
+@app.get("/api/library/{library_id}/playlists/{playlist_id}/similar")
+def find_similar_playlists(
+    library_id: str,
+    playlist_id: str,
+    min_similarity: float = Query(0.5, ge=0.0, le=1.0, description="Minimum similarity score (0-1)")
+):
+    """
+    Find playlists similar to the given playlist based on genre, key, and BPM.
+    Similarity is calculated as the average of:
+    - Genre overlap ratio
+    - Key overlap ratio  
+    - BPM proximity ratio
+    """
+    lib = get_library_or_404(library_id)
+    
+    if playlist_id not in lib.playlists:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    
+    source_playlist = lib.playlists[playlist_id]
+    source_tracks = [lib.get_track(tid) for tid in source_playlist.track_ids if lib.get_track(tid)]
+    
+    if not source_tracks:
+        return {
+            "source_playlist_id": playlist_id,
+            "source_playlist_name": source_playlist.name,
+            "similar_playlists": []
+        }
+    
+    # Calculate source playlist characteristics
+    source_genres = set(t.genre for t in source_tracks if t.genre)
+    source_keys = set(t.key for t in source_tracks if t.key)
+    source_bpms = [t.bpm for t in source_tracks if t.bpm]
+    source_avg_bpm = sum(source_bpms) / len(source_bpms) if source_bpms else None
+    
+    similar_playlists = []
+    
+    for pid, playlist in lib.playlists.items():
+        if pid == playlist_id:
+            continue
+            
+        playlist_tracks = [lib.get_track(tid) for tid in playlist.track_ids if lib.get_track(tid)]
+        
+        if not playlist_tracks:
+            continue
+        
+        # Calculate target playlist characteristics
+        target_genres = set(t.genre for t in playlist_tracks if t.genre)
+        target_keys = set(t.key for t in playlist_tracks if t.key)
+        target_bpms = [t.bpm for t in playlist_tracks if t.bpm]
+        target_avg_bpm = sum(target_bpms) / len(target_bpms) if target_bpms else None
+        
+        # Calculate similarity scores
+        scores = []
+        
+        # Genre similarity (Jaccard similarity)
+        if source_genres and target_genres:
+            genre_intersection = len(source_genres & target_genres)
+            genre_union = len(source_genres | target_genres)
+            genre_similarity = genre_intersection / genre_union if genre_union > 0 else 0
+            scores.append(genre_similarity)
+        
+        # Key similarity (Jaccard similarity)
+        if source_keys and target_keys:
+            key_intersection = len(source_keys & target_keys)
+            key_union = len(source_keys | target_keys)
+            key_similarity = key_intersection / key_union if key_union > 0 else 0
+            scores.append(key_similarity)
+        
+        # BPM similarity (proximity-based)
+        if source_avg_bpm and target_avg_bpm:
+            bpm_diff = abs(source_avg_bpm - target_avg_bpm)
+            # Consider playlists within 20 BPM as similar, scale linearly
+            bpm_similarity = max(0, 1 - (bpm_diff / 20))
+            scores.append(bpm_similarity)
+        
+        # Calculate overall similarity (average of available scores)
+        if scores:
+            overall_similarity = sum(scores) / len(scores)
+            
+            if overall_similarity >= min_similarity:
+                similar_playlists.append({
+                    "playlist_id": pid,
+                    "playlist_name": playlist.name,
+                    "track_count": len(playlist_tracks),
+                    "similarity_score": round(overall_similarity, 3),
+                    "common_genres": list(source_genres & target_genres) if source_genres and target_genres else [],
+                    "common_keys": list(source_keys & target_keys) if source_keys and target_keys else [],
+                    "avg_bpm": round(target_avg_bpm, 1) if target_avg_bpm else None,
+                    "bpm_difference": round(abs(source_avg_bpm - target_avg_bpm), 1) if source_avg_bpm and target_avg_bpm else None
+                })
+    
+    # Sort by similarity score descending
+    similar_playlists.sort(key=lambda x: x["similarity_score"], reverse=True)
+    
+    return {
+        "source_playlist_id": playlist_id,
+        "source_playlist_name": source_playlist.name,
+        "source_track_count": len(source_tracks),
+        "source_characteristics": {
+            "genres": list(source_genres),
+            "keys": list(source_keys),
+            "avg_bpm": round(source_avg_bpm, 1) if source_avg_bpm else None
+        },
+        "similar_playlists": similar_playlists,
+        "total_found": len(similar_playlists)
+    }
