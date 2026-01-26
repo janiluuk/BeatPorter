@@ -18,6 +18,109 @@
             padding: 20px;
             position: relative;
             overflow-x: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        
+        /* Light mode styles */
+        body.light-mode {
+            background: #f1f5f9;
+        }
+        
+        body.light-mode::before {
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.15), transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.15), transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(59, 130, 246, 0.1), transparent 50%);
+        }
+        
+        body.light-mode .main-card {
+            background: rgba(255, 255, 255, 0.9);
+            border-color: rgba(139, 92, 246, 0.3);
+        }
+        
+        body.light-mode header h1,
+        body.light-mode header p {
+            color: #1e293b;
+            text-shadow: none;
+        }
+        
+        body.light-mode .btn-primary,
+        body.light-mode .btn-secondary,
+        body.light-mode .btn-success {
+            color: #1e293b;
+        }
+        
+        body.light-mode #debug-log {
+            background: #e2e8f0;
+            color: #1e293b;
+        }
+        
+        body.light-mode .log-entry {
+            color: #1e293b;
+        }
+        
+        body.light-mode #track-search-input,
+        body.light-mode #track-sort-select {
+            background: rgba(255, 255, 255, 0.8);
+            color: #1e293b;
+        }
+        
+        body.light-mode th,
+        body.light-mode td {
+            color: #1e293b;
+        }
+        
+        body.light-mode .status-bar,
+        body.light-mode .stat-card {
+            background: rgba(139, 92, 246, 0.05);
+        }
+        
+        body.light-mode .status-item,
+        body.light-mode .stat-label {
+            color: #475569;
+        }
+        
+        body.light-mode .modal-content {
+            background: rgba(255, 255, 255, 0.95);
+        }
+        
+        body.light-mode .modal-header h2 {
+            color: #7c3aed;
+        }
+        
+        body.light-mode input[type="text"],
+        body.light-mode input[type="number"] {
+            background: rgba(255, 255, 255, 0.8) !important;
+            color: #1e293b !important;
+        }
+        
+        body.light-mode label {
+            color: #475569 !important;
+        }
+        
+        body.light-mode #track-page-label {
+            color: #475569 !important;
+        }
+        
+        /* Theme toggle button */
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(139, 92, 246, 0.2);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            color: #a78bfa;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1.1em;
+            z-index: 100;
+            transition: all 0.3s;
+        }
+        
+        .theme-toggle:hover {
+            background: rgba(139, 92, 246, 0.3);
+            transform: scale(1.05);
         }
         
         body::before {
@@ -487,9 +590,189 @@
             color: #94a3b8;
             margin-top: 5px;
         }
+        
+        /* Bulk selection styles */
+        .track-row {
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .track-row.selected {
+            background: rgba(139, 92, 246, 0.3) !important;
+        }
+        
+        .track-checkbox {
+            cursor: pointer;
+            width: 18px;
+            height: 18px;
+        }
+        
+        .bulk-actions {
+            display: none;
+            padding: 15px;
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .bulk-actions.visible {
+            display: flex;
+        }
+        
+        /* Drag and drop styles */
+        .dragging {
+            opacity: 0.5;
+            background: rgba(139, 92, 246, 0.2);
+        }
+        
+        .drag-over {
+            border-top: 2px solid #8b5cf6;
+        }
+        
+        /* Keyboard shortcuts modal */
+        .shortcuts-list {
+            display: grid;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .shortcut-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: rgba(139, 92, 246, 0.1);
+            border-radius: 6px;
+        }
+        
+        .shortcut-key {
+            background: rgba(139, 92, 246, 0.3);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+        
+        /* Charts container */
+        .chart-container {
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(139, 92, 246, 0.05);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 8px;
+        }
+        
+        .chart-title {
+            color: #a78bfa;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        
+        .chart {
+            width: 100%;
+            height: 300px;
+        }
+        
+        .bar-chart {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-around;
+            height: 250px;
+            padding: 10px;
+            gap: 5px;
+        }
+        
+        .bar {
+            flex: 1;
+            background: linear-gradient(180deg, #8b5cf6, #6d28d9);
+            border-radius: 4px 4px 0 0;
+            position: relative;
+            min-width: 20px;
+            max-width: 60px;
+            transition: all 0.3s;
+        }
+        
+        .bar:hover {
+            background: linear-gradient(180deg, #a78bfa, #8b5cf6);
+        }
+        
+        .bar-label {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.8em;
+            color: #94a3b8;
+            white-space: nowrap;
+        }
+        
+        .bar-value {
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.9em;
+            color: #a78bfa;
+            font-weight: bold;
+        }
+        
+        /* Custom metadata styles */
+        .metadata-fields {
+            display: grid;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .metadata-field {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        /* Playlist folder styles */
+        .playlist-folder {
+            margin: 10px 0;
+        }
+        
+        .folder-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(139, 92, 246, 0.1);
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        .folder-icon {
+            transition: transform 0.3s;
+        }
+        
+        .folder-icon.expanded {
+            transform: rotate(90deg);
+        }
+        
+        .folder-content {
+            margin-left: 25px;
+            display: none;
+        }
+        
+        .folder-content.visible {
+            display: block;
+        }
     </style>
 </head>
 <body>
+    <!-- Theme Toggle Button -->
+    <button class="theme-toggle" id="theme-toggle" title="Toggle dark/light mode (T)">
+        🌙 Dark Mode
+    </button>
+    
     <div class="container">
         <header>
             <h1>🎵 BeatPorter</h1>
@@ -554,6 +837,12 @@
                         <button id="btn-stats" class="btn-secondary">
                             <span>📊</span> Statistics
                         </button>
+                        <button id="btn-analytics" class="btn-secondary">
+                            <span>📈</span> Analytics
+                        </button>
+                        <button id="btn-shortcuts" class="btn-secondary">
+                            <span>⌨️</span> Shortcuts
+                        </button>
                         <div class="export-dropdown">
                             <button id="btn-export-main" class="btn-success">
                                 <span>💾</span> Export ▼
@@ -570,8 +859,22 @@
                 
                 <!-- Tracks Tab -->
                 <div id="tab-tracks" class="tab-content">
+                    <!-- Bulk Actions Bar -->
+                    <div id="bulk-actions" class="bulk-actions">
+                        <span id="bulk-count" style="color: #a78bfa; font-weight: bold;">0 selected</span>
+                        <button id="btn-bulk-delete" class="btn-secondary" style="font-size: 0.9em;">
+                            <span>🗑️</span> Delete Selected
+                        </button>
+                        <button id="btn-bulk-export" class="btn-secondary" style="font-size: 0.9em;">
+                            <span>💾</span> Export Selected
+                        </button>
+                        <button id="btn-bulk-clear" class="btn-secondary" style="font-size: 0.9em;">
+                            <span>✖️</span> Clear Selection
+                        </button>
+                    </div>
+                    
                     <div class="browser-controls">
-                        <input type="text" id="track-search-input" placeholder="Search tracks...">
+                        <input type="text" id="track-search-input" placeholder="Search tracks... (Ctrl+F)">
                         <select id="track-sort-select">
                             <option value="title">Sort by Title</option>
                             <option value="artist">Sort by Artist</option>
@@ -583,6 +886,7 @@
                         <table>
                             <thead>
                                 <tr>
+                                    <th><input type="checkbox" id="select-all-tracks" title="Select all"></th>
                                     <th>#</th>
                                     <th>Title</th>
                                     <th>Artist</th>
@@ -598,15 +902,57 @@
                         </table>
                     </div>
                     <div id="track-pagination">
-                        <button id="track-prev" class="btn-secondary">← Previous</button>
+                        <button id="track-prev" class="btn-secondary">← Previous (←)</button>
                         <span id="track-page-label" style="color: #cbd5e1;">Page 1</span>
-                        <button id="track-next" class="btn-secondary">Next →</button>
+                        <button id="track-next" class="btn-secondary">Next (→)</button>
                     </div>
                 </div>
                 
                 <!-- Tools Tab -->
                 <div id="tab-tools" class="tab-content">
-                    <p style="color: #94a3b8; text-align: center; padding: 40px;">Tools and utilities coming soon...</p>
+                    <div style="display: grid; gap: 20px;">
+                        <!-- Folder Management Section -->
+                        <div style="padding: 20px; background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 8px;">
+                            <h3 style="color: #a78bfa; margin-bottom: 15px;">📁 Playlist Folders</h3>
+                            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                <button id="btn-create-folder" class="btn-secondary">
+                                    <span>➕</span> Create Folder
+                                </button>
+                                <button id="btn-view-folders" class="btn-secondary">
+                                    <span>👁️</span> View Hierarchy
+                                </button>
+                            </div>
+                            <div id="folder-hierarchy" style="margin-top: 15px; display: none; max-height: 400px; overflow-y: auto;"></div>
+                        </div>
+                        
+                        <!-- Custom Metadata Section -->
+                        <div style="padding: 20px; background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 8px;">
+                            <h3 style="color: #a78bfa; margin-bottom: 15px;">🏷️ Custom Metadata & Tags</h3>
+                            <p style="color: #94a3b8; margin-bottom: 15px;">Add custom fields and tags to your tracks for better organization.</p>
+                            <div style="display: flex; gap: 10px;">
+                                <button id="btn-view-tags" class="btn-secondary">
+                                    <span>🔖</span> View All Tags
+                                </button>
+                                <button id="btn-view-custom-fields" class="btn-secondary">
+                                    <span>📝</span> View Custom Fields
+                                </button>
+                            </div>
+                            <div id="tags-list" style="margin-top: 15px; display: none;"></div>
+                            <div id="custom-fields-list" style="margin-top: 15px; display: none;"></div>
+                        </div>
+                        
+                        <!-- Playlist Similarity Section -->
+                        <div style="padding: 20px; background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 8px;">
+                            <h3 style="color: #a78bfa; margin-bottom: 15px;">🔍 Playlist Similarity</h3>
+                            <p style="color: #94a3b8; margin-bottom: 15px;">Find playlists with similar characteristics based on genre, key, and BPM.</p>
+                            <div style="display: flex; gap: 10px;">
+                                <button id="btn-find-similar" class="btn-secondary">
+                                    <span>🔍</span> Find Similar Playlists
+                                </button>
+                            </div>
+                            <div id="similarity-results" style="margin-top: 15px; display: none;"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -670,6 +1016,135 @@
         </div>
     </div>
     
+    <!-- Keyboard Shortcuts Modal -->
+    <div id="shortcuts-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>⌨️ Keyboard Shortcuts</h2>
+                <button class="close-modal" onclick="closeShortcutsModal()">Close</button>
+            </div>
+            <div class="shortcuts-list">
+                <div class="shortcut-item">
+                    <span style="color: #cbd5e1;">Toggle Dark/Light Mode</span>
+                    <span class="shortcut-key">T</span>
+                </div>
+                <div class="shortcut-item">
+                    <span style="color: #cbd5e1;">Show Statistics</span>
+                    <span class="shortcut-key">S</span>
+                </div>
+                <div class="shortcut-item">
+                    <span style="color: #cbd5e1;">Show Keyboard Shortcuts</span>
+                    <span class="shortcut-key">?</span>
+                </div>
+                <div class="shortcut-item">
+                    <span style="color: #cbd5e1;">Find Duplicates</span>
+                    <span class="shortcut-key">D</span>
+                </div>
+                <div class="shortcut-item">
+                    <span style="color: #cbd5e1;">Check Metadata</span>
+                    <span class="shortcut-key">M</span>
+                </div>
+                <div class="shortcut-item">
+                    <span style="color: #cbd5e1;">Health Check</span>
+                    <span class="shortcut-key">H</span>
+                </div>
+                <div class="shortcut-item">
+                    <span style="color: #cbd5e1;">Search Tracks</span>
+                    <span class="shortcut-key">Ctrl+F</span>
+                </div>
+                <div class="shortcut-item">
+                    <span style="color: #cbd5e1;">Next Page</span>
+                    <span class="shortcut-key">→</span>
+                </div>
+                <div class="shortcut-item">
+                    <span style="color: #cbd5e1;">Previous Page</span>
+                    <span class="shortcut-key">←</span>
+                </div>
+                <div class="shortcut-item">
+                    <span style="color: #cbd5e1;">Select All Tracks</span>
+                    <span class="shortcut-key">Ctrl+A</span>
+                </div>
+                <div class="shortcut-item">
+                    <span style="color: #cbd5e1;">Show Analytics</span>
+                    <span class="shortcut-key">A</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Analytics Modal -->
+    <div id="analytics-modal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2>📊 Library Analytics</h2>
+                <button class="close-modal" onclick="closeAnalyticsModal()">Close</button>
+            </div>
+            <div id="analytics-content">
+                <!-- BPM Distribution Chart -->
+                <div class="chart-container">
+                    <h3 class="chart-title">BPM Distribution</h3>
+                    <div id="bpm-chart" class="bar-chart"></div>
+                </div>
+                
+                <!-- Year Distribution Chart -->
+                <div class="chart-container">
+                    <h3 class="chart-title">Year Distribution</h3>
+                    <div id="year-chart" class="bar-chart"></div>
+                </div>
+                
+                <!-- Key Distribution Chart -->
+                <div class="chart-container">
+                    <h3 class="chart-title">Key Distribution</h3>
+                    <div id="key-chart" class="bar-chart"></div>
+                </div>
+                
+                <!-- Genre Distribution Chart -->
+                <div class="chart-container">
+                    <h3 class="chart-title">Genre Distribution</h3>
+                    <div id="genre-chart" class="bar-chart"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Create Folder Modal -->
+    <div id="create-folder-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>➕ Create Folder</h2>
+                <button class="close-modal" onclick="closeCreateFolderModal()">Close</button>
+            </div>
+            <div style="margin-top: 20px;">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; color: #cbd5e1;">Folder Name:</label>
+                    <input type="text" id="folder-name" placeholder="My Folder" style="width: 100%; padding: 10px; border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; background: rgba(15, 23, 42, 0.6); color: #e2e8f0;">
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 5px; color: #cbd5e1;">Parent Folder (optional):</label>
+                    <select id="folder-parent" style="width: 100%; padding: 10px; border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; background: rgba(15, 23, 42, 0.6); color: #e2e8f0;">
+                        <option value="">Root Level</option>
+                    </select>
+                </div>
+                <button onclick="createFolder()" class="btn-primary" style="width: 100%; justify-content: center;">
+                    <span>➕</span> Create Folder
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit Track Metadata Modal -->
+    <div id="edit-metadata-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🏷️ Edit Track Metadata</h2>
+                <button class="close-modal" onclick="closeEditMetadataModal()">Close</button>
+            </div>
+            <div id="metadata-editor" style="margin-top: 20px;">
+                <!-- Will be populated dynamically -->
+            </div>
+        </div>
+    </div>
+    
     <script>
         let libraryId = null;
         let allTracks = [];
@@ -678,6 +1153,71 @@
         const tracksPerPage = 50;
         let currentSearchQuery = '';
         let currentSortBy = 'title';
+        let selectedTracks = new Set();
+        let draggedRow = null;
+        
+        // Theme management
+        function initTheme() {
+            const savedTheme = localStorage.getItem('beatporter-theme') || 'dark';
+            if (savedTheme === 'light') {
+                document.body.classList.add('light-mode');
+                updateThemeButton();
+            }
+        }
+        
+        function toggleTheme() {
+            document.body.classList.toggle('light-mode');
+            updateThemeButton();
+            const theme = document.body.classList.contains('light-mode') ? 'light' : 'dark';
+            localStorage.setItem('beatporter-theme', theme);
+        }
+        
+        function updateThemeButton() {
+            const btn = document.getElementById('theme-toggle');
+            if (document.body.classList.contains('light-mode')) {
+                btn.textContent = '☀️ Light Mode';
+            } else {
+                btn.textContent = '🌙 Dark Mode';
+            }
+        }
+        
+        // Auto-save library state to localStorage
+        function saveLibraryState() {
+            if (libraryId) {
+                const state = {
+                    libraryId,
+                    timestamp: new Date().toISOString()
+                };
+                localStorage.setItem('beatporter-library-state', JSON.stringify(state));
+            }
+        }
+        
+        function loadLibraryState() {
+            const saved = localStorage.getItem('beatporter-library-state');
+            if (saved) {
+                try {
+                    const state = JSON.parse(saved);
+                    // Check if library still exists on server
+                    fetch(`/api/library/${state.libraryId}/tracks`)
+                        .then(res => {
+                            if (res.ok) {
+                                libraryId = state.libraryId;
+                                log(`Restored library from ${new Date(state.timestamp).toLocaleString()}`, 'success');
+                                loadTracks();
+                                enableControls();
+                            }
+                        })
+                        .catch(() => {
+                            localStorage.removeItem('beatporter-library-state');
+                        });
+                } catch (e) {
+                    localStorage.removeItem('beatporter-library-state');
+                }
+            }
+        }
+        
+        // Initialize theme
+        initTheme();
         
         // Dropzone handlers
         const dropzone = document.getElementById('dropzone');
@@ -768,6 +1308,9 @@
             
             // Show tabs
             document.getElementById('tabs-container').style.display = 'block';
+            
+            // Auto-save library state
+            saveLibraryState();
         }
         
         // Enable controls
@@ -802,9 +1345,10 @@
             try {
                 const response = await fetch(`/api/library/${libraryId}/tracks`);
                 const data = await response.json();
-                allTracks = data.tracks || [];
+                allTracks = Array.isArray(data) ? data : (data.tracks || []);
                 filteredTracks = [...allTracks];
                 log(`Loaded ${allTracks.length} tracks`, 'info');
+                filterAndSortTracks();
             } catch (err) {
                 log(`Error loading tracks: ${err.message}`, 'error');
             }
@@ -864,7 +1408,7 @@
             
             if (pageItems.length === 0 && filteredTracks.length === 0) {
                 const row = tbody.insertRow();
-                row.innerHTML = `<td colspan="8" style="text-align: center; color: #94a3b8; padding: 40px;">No tracks found${currentSearchQuery ? ` matching "${currentSearchQuery}"` : ''}</td>`;
+                row.innerHTML = `<td colspan="9" style="text-align: center; color: #94a3b8; padding: 40px;">No tracks found${currentSearchQuery ? ` matching "${currentSearchQuery}"` : ''}</td>`;
                 document.getElementById('track-page-label').textContent = 'Page 0 of 0';
                 document.getElementById('track-prev').disabled = true;
                 document.getElementById('track-next').disabled = true;
@@ -873,8 +1417,16 @@
             
             pageItems.forEach((track, idx) => {
                 const row = tbody.insertRow();
+                const trackId = track.id || `track-${start + idx}`;
                 const importDate = track.import_date || track.added_date || new Date().toISOString().split('T')[0];
+                const isSelected = selectedTracks.has(trackId);
+                
+                row.className = 'track-row' + (isSelected ? ' selected' : '');
+                row.setAttribute('data-track-id', trackId);
+                row.setAttribute('draggable', 'true');
+                
                 row.innerHTML = `
+                    <td><input type="checkbox" class="track-checkbox" data-track-id="${trackId}" ${isSelected ? 'checked' : ''}></td>
                     <td>${start + idx + 1}</td>
                     <td>${track.title || '-'}</td>
                     <td>${track.artist || '-'}</td>
@@ -884,6 +1436,19 @@
                     <td>${track.year || '-'}</td>
                     <td>${importDate}</td>
                 `;
+                
+                // Add drag and drop handlers
+                row.addEventListener('dragstart', handleDragStart);
+                row.addEventListener('dragover', handleDragOver);
+                row.addEventListener('drop', handleDrop);
+                row.addEventListener('dragend', handleDragEnd);
+                
+                // Add checkbox handler
+                const checkbox = row.querySelector('.track-checkbox');
+                checkbox.addEventListener('change', (e) => {
+                    e.stopPropagation();
+                    handleTrackSelection(trackId, checkbox.checked);
+                });
             });
             
             const totalPages = Math.ceil(filteredTracks.length / tracksPerPage);
@@ -892,6 +1457,92 @@
             
             document.getElementById('track-prev').disabled = currentPage === 1;
             document.getElementById('track-next').disabled = end >= filteredTracks.length;
+            
+            updateBulkActionsBar();
+        }
+        
+        // Track selection handlers
+        function handleTrackSelection(trackId, isSelected) {
+            if (isSelected) {
+                selectedTracks.add(trackId);
+            } else {
+                selectedTracks.delete(trackId);
+            }
+            updateBulkActionsBar();
+            
+            // Update row styling
+            const row = document.querySelector(`tr[data-track-id="${trackId}"]`);
+            if (row) {
+                if (isSelected) {
+                    row.classList.add('selected');
+                } else {
+                    row.classList.remove('selected');
+                }
+            }
+        }
+        
+        function updateBulkActionsBar() {
+            const bulkActions = document.getElementById('bulk-actions');
+            const bulkCount = document.getElementById('bulk-count');
+            
+            if (selectedTracks.size > 0) {
+                bulkActions.classList.add('visible');
+                bulkCount.textContent = `${selectedTracks.size} selected`;
+            } else {
+                bulkActions.classList.remove('visible');
+            }
+        }
+        
+        // Drag and drop handlers
+        function handleDragStart(e) {
+            draggedRow = this;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML);
+        }
+        
+        function handleDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            e.dataTransfer.dropEffect = 'move';
+            
+            if (this !== draggedRow && this.classList.contains('track-row')) {
+                this.classList.add('drag-over');
+            }
+            return false;
+        }
+        
+        function handleDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+            
+            if (draggedRow !== this && this.classList.contains('track-row')) {
+                // Get the IDs
+                const draggedId = draggedRow.getAttribute('data-track-id');
+                const targetId = this.getAttribute('data-track-id');
+                
+                // Find indices in filteredTracks
+                const draggedIndex = filteredTracks.findIndex(t => (t.id || `track-${filteredTracks.indexOf(t)}`) === draggedId);
+                const targetIndex = filteredTracks.findIndex(t => (t.id || `track-${filteredTracks.indexOf(t)}`) === targetId);
+                
+                if (draggedIndex !== -1 && targetIndex !== -1) {
+                    // Reorder
+                    const [removed] = filteredTracks.splice(draggedIndex, 1);
+                    filteredTracks.splice(targetIndex, 0, removed);
+                    displayTracks();
+                    log('Track order updated', 'info');
+                }
+            }
+            
+            this.classList.remove('drag-over');
+            return false;
+        }
+        
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
         }
         
         // Button handlers
@@ -1117,6 +1768,575 @@
                 log(`Error creating playlist: ${err.message}`, 'error');
             }
         }
+        
+        // Theme toggle handler
+        document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+        
+        // Shortcuts modal handlers
+        document.getElementById('btn-shortcuts').addEventListener('click', () => {
+            document.getElementById('shortcuts-modal').classList.add('visible');
+        });
+        
+        function closeShortcutsModal() {
+            document.getElementById('shortcuts-modal').classList.remove('visible');
+        }
+        
+        // Analytics modal handlers
+        document.getElementById('btn-analytics').addEventListener('click', async () => {
+            try {
+                await loadAnalytics();
+            } catch (err) {
+                log(`Error loading analytics: ${err.message}`, 'error');
+            }
+        });
+        
+        function closeAnalyticsModal() {
+            document.getElementById('analytics-modal').classList.remove('visible');
+        }
+        
+        async function loadAnalytics() {
+            if (!libraryId) return;
+            
+            log('Loading analytics...', 'info');
+            const response = await fetch(`/api/library/${libraryId}/tracks`);
+            const tracks = await response.json();
+            
+            // Generate charts
+            generateBPMChart(tracks);
+            generateYearChart(tracks);
+            generateKeyChart(tracks);
+            generateGenreChart(tracks);
+            
+            document.getElementById('analytics-modal').classList.add('visible');
+            log('Analytics loaded', 'success');
+        }
+        
+        function generateBPMChart(tracks) {
+            const bpmRanges = {
+                '< 100': 0,
+                '100-120': 0,
+                '120-130': 0,
+                '130-140': 0,
+                '140-150': 0,
+                '150+': 0
+            };
+            
+            tracks.forEach(track => {
+                const bpm = track.bpm;
+                if (!bpm) return;
+                if (bpm < 100) bpmRanges['< 100']++;
+                else if (bpm < 120) bpmRanges['100-120']++;
+                else if (bpm < 130) bpmRanges['120-130']++;
+                else if (bpm < 140) bpmRanges['130-140']++;
+                else if (bpm < 150) bpmRanges['140-150']++;
+                else bpmRanges['150+']++;
+            });
+            
+            renderBarChart('bpm-chart', bpmRanges);
+        }
+        
+        function generateYearChart(tracks) {
+            const yearCounts = {};
+            
+            tracks.forEach(track => {
+                if (track.year && track.year > 1950) {
+                    const decade = Math.floor(track.year / 10) * 10;
+                    yearCounts[`${decade}s`] = (yearCounts[`${decade}s`] || 0) + 1;
+                }
+            });
+            
+            renderBarChart('year-chart', yearCounts);
+        }
+        
+        function generateKeyChart(tracks) {
+            const keyCounts = {};
+            
+            tracks.forEach(track => {
+                if (track.key) {
+                    keyCounts[track.key] = (keyCounts[track.key] || 0) + 1;
+                }
+            });
+            
+            // Sort by count and take top 12
+            const sortedKeys = Object.entries(keyCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 12)
+                .reduce((obj, [key, val]) => ({ ...obj, [key]: val }), {});
+            
+            renderBarChart('key-chart', sortedKeys);
+        }
+        
+        function generateGenreChart(tracks) {
+            const genreCounts = {};
+            
+            tracks.forEach(track => {
+                if (track.genre && track.genre !== '-') {
+                    genreCounts[track.genre] = (genreCounts[track.genre] || 0) + 1;
+                }
+            });
+            
+            // Sort by count and take top 10
+            const sortedGenres = Object.entries(genreCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10)
+                .reduce((obj, [key, val]) => ({ ...obj, [key]: val }), {});
+            
+            renderBarChart('genre-chart', sortedGenres);
+        }
+        
+        function renderBarChart(containerId, data) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            const entries = Object.entries(data);
+            if (entries.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #94a3b8; padding: 20px;">No data available</p>';
+                return;
+            }
+            
+            const maxValue = Math.max(...entries.map(([_, val]) => val));
+            
+            entries.forEach(([label, value]) => {
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                const height = (value / maxValue) * 100;
+                bar.style.height = `${height}%`;
+                
+                const barValue = document.createElement('div');
+                barValue.className = 'bar-value';
+                barValue.textContent = value;
+                
+                const barLabel = document.createElement('div');
+                barLabel.className = 'bar-label';
+                barLabel.textContent = label;
+                
+                bar.appendChild(barValue);
+                bar.appendChild(barLabel);
+                container.appendChild(bar);
+            });
+        }
+        
+        // Bulk action handlers
+        document.getElementById('select-all-tracks').addEventListener('change', (e) => {
+            const checkboxes = document.querySelectorAll('.track-checkbox');
+            checkboxes.forEach(cb => {
+                const trackId = cb.getAttribute('data-track-id');
+                cb.checked = e.target.checked;
+                handleTrackSelection(trackId, e.target.checked);
+            });
+        });
+        
+        document.getElementById('btn-bulk-clear').addEventListener('click', () => {
+            selectedTracks.clear();
+            document.querySelectorAll('.track-checkbox').forEach(cb => cb.checked = false);
+            document.querySelectorAll('.track-row').forEach(row => row.classList.remove('selected'));
+            document.getElementById('select-all-tracks').checked = false;
+            updateBulkActionsBar();
+        });
+        
+        document.getElementById('btn-bulk-delete').addEventListener('click', () => {
+            if (selectedTracks.size === 0) return;
+            if (!confirm(`Delete ${selectedTracks.size} selected tracks?`)) return;
+            
+            // Remove selected tracks from filteredTracks
+            filteredTracks = filteredTracks.filter(track => {
+                const trackId = track.id || `track-${allTracks.indexOf(track)}`;
+                return !selectedTracks.has(trackId);
+            });
+            
+            allTracks = filteredTracks;
+            selectedTracks.clear();
+            displayTracks();
+            log(`Deleted ${selectedTracks.size} tracks`, 'success');
+        });
+        
+        document.getElementById('btn-bulk-export').addEventListener('click', () => {
+            if (selectedTracks.size === 0) return;
+            
+            const selectedTrackData = filteredTracks.filter(track => {
+                const trackId = track.id || `track-${allTracks.indexOf(track)}`;
+                return selectedTracks.has(trackId);
+            });
+            
+            // Create a simple export format
+            const exportData = selectedTrackData.map((track, idx) => 
+                `${idx + 1}. ${track.artist || 'Unknown'} - ${track.title || 'Unknown'}`
+            ).join('\n');
+            
+            downloadFile('selected_tracks.txt', exportData);
+            log(`Exported ${selectedTracks.size} tracks`, 'success');
+        });
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Don't trigger shortcuts when typing in input fields
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                return;
+            }
+            
+            switch(e.key.toLowerCase()) {
+                case 't':
+                    toggleTheme();
+                    break;
+                case 's':
+                    if (!e.ctrlKey && !e.metaKey) {
+                        document.getElementById('btn-stats').click();
+                    }
+                    break;
+                case '?':
+                    document.getElementById('btn-shortcuts').click();
+                    break;
+                case 'd':
+                    if (!e.ctrlKey && !e.metaKey) {
+                        document.getElementById('btn-duplicates').click();
+                    }
+                    break;
+                case 'm':
+                    if (!e.ctrlKey && !e.metaKey) {
+                        document.getElementById('btn-metadata').click();
+                    }
+                    break;
+                case 'h':
+                    if (!e.ctrlKey && !e.metaKey) {
+                        document.getElementById('btn-health').click();
+                    }
+                    break;
+                case 'a':
+                    if (e.ctrlKey || e.metaKey) {
+                        // Select all tracks
+                        e.preventDefault();
+                        document.getElementById('select-all-tracks').checked = true;
+                        document.getElementById('select-all-tracks').dispatchEvent(new Event('change'));
+                    } else {
+                        // Show analytics
+                        document.getElementById('btn-analytics').click();
+                    }
+                    break;
+                case 'arrowright':
+                    document.getElementById('track-next').click();
+                    break;
+                case 'arrowleft':
+                    document.getElementById('track-prev').click();
+                    break;
+                case 'f':
+                    if (e.ctrlKey || e.metaKey) {
+                        e.preventDefault();
+                        document.getElementById('track-search-input').focus();
+                    }
+                    break;
+            }
+        });
+        
+        
+        // ===== Folder Management Functions =====
+        
+        let allFolders = [];
+        
+        async function loadFolders() {
+            if (!libraryId) return;
+            try {
+                const response = await fetch(`/api/library/${libraryId}/folders`);
+                const data = await response.json();
+                return data;
+            } catch (err) {
+                log(`Error loading folders: ${err.message}`, 'error');
+                return null;
+            }
+        }
+        
+        function populateFolderDropdown() {
+            const select = document.getElementById('folder-parent');
+            if (!select) return;
+            
+            // Keep root option
+            select.innerHTML = '<option value="">Root Level</option>';
+            
+            // Add all folders
+            function addFoldersToSelect(folders, indent = '') {
+                folders.forEach(folder => {
+                    const option = document.createElement('option');
+                    option.value = folder.id;
+                    option.textContent = indent + folder.name;
+                    select.appendChild(option);
+                    
+                    // Add subfolders recursively
+                    if (folder.subfolders && folder.subfolders.length > 0) {
+                        addFoldersToSelect(folder.subfolders, indent + '  ');
+                    }
+                });
+            }
+            
+            loadFolders().then(data => {
+                if (data && data.folders) {
+                    addFoldersToSelect(data.folders);
+                }
+            });
+        }
+        
+        document.getElementById('btn-create-folder').addEventListener('click', () => {
+            populateFolderDropdown();
+            document.getElementById('create-folder-modal').classList.add('visible');
+        });
+        
+        function closeCreateFolderModal() {
+            document.getElementById('create-folder-modal').classList.remove('visible');
+        }
+        
+        async function createFolder() {
+            const name = document.getElementById('folder-name').value.trim();
+            if (!name) {
+                log('Folder name is required', 'error');
+                return;
+            }
+            
+            const parentId = document.getElementById('folder-parent').value || null;
+            
+            try {
+                const response = await fetch(`/api/library/${libraryId}/folders`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        name: name,
+                        parent_id: parentId
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to create folder');
+                }
+                
+                const data = await response.json();
+                log(`Folder "${name}" created successfully`, 'success');
+                closeCreateFolderModal();
+                
+                // Clear form
+                document.getElementById('folder-name').value = '';
+                document.getElementById('folder-parent').value = '';
+            } catch (err) {
+                log(`Error creating folder: ${err.message}`, 'error');
+            }
+        }
+        
+        document.getElementById('btn-view-folders').addEventListener('click', async () => {
+            const data = await loadFolders();
+            if (!data) return;
+            
+            const container = document.getElementById('folder-hierarchy');
+            container.innerHTML = '';
+            
+            function renderFolderTree(folders, indent = 0) {
+                let html = '';
+                folders.forEach(folder => {
+                    const indentStr = '  '.repeat(indent);
+                    html += `<div style="margin: 5px 0; padding-left: ${indent * 20}px;">`;
+                    html += `<span style="color: #a78bfa;">📁 ${folder.name}</span>`;
+                    
+                    // Show playlists in folder
+                    if (folder.playlists && folder.playlists.length > 0) {
+                        folder.playlists.forEach(playlist => {
+                            html += `<div style="padding-left: 20px; color: #94a3b8; margin: 3px 0;">├─ 🎵 ${playlist.name}</div>`;
+                        });
+                    }
+                    
+                    html += '</div>';
+                    
+                    // Render subfolders
+                    if (folder.subfolders && folder.subfolders.length > 0) {
+                        html += renderFolderTree(folder.subfolders, indent + 1);
+                    }
+                });
+                return html;
+            }
+            
+            let html = '<div style="color: #cbd5e1; margin-bottom: 10px;"><strong>Folder Hierarchy:</strong></div>';
+            
+            if (data.folders && data.folders.length > 0) {
+                html += renderFolderTree(data.folders);
+            } else {
+                html += '<div style="color: #94a3b8;">No folders created yet.</div>';
+            }
+            
+            if (data.playlists && data.playlists.length > 0) {
+                html += '<div style="margin-top: 15px; color: #cbd5e1;"><strong>Root Playlists:</strong></div>';
+                data.playlists.forEach(playlist => {
+                    html += `<div style="color: #94a3b8; margin: 3px 0;">🎵 ${playlist.name}</div>`;
+                });
+            }
+            
+            container.innerHTML = html;
+            container.style.display = 'block';
+        });
+        
+        // ===== Custom Metadata and Tags Functions =====
+        
+        document.getElementById('btn-view-tags').addEventListener('click', async () => {
+            if (!libraryId) return;
+            
+            try {
+                const response = await fetch(`/api/library/${libraryId}/tags`);
+                const data = await response.json();
+                
+                const container = document.getElementById('tags-list');
+                container.innerHTML = '';
+                
+                if (data.tags && data.tags.length > 0) {
+                    let html = '<div style="color: #cbd5e1; margin-bottom: 10px;"><strong>All Tags:</strong></div>';
+                    html += '<div style="display: flex; flex-wrap: wrap; gap: 8px;">';
+                    
+                    data.tags.forEach(tag => {
+                        html += `<span style="background: rgba(139, 92, 246, 0.2); color: #a78bfa; padding: 5px 12px; border-radius: 15px; font-size: 0.9em;">${tag}</span>`;
+                    });
+                    
+                    html += '</div>';
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<div style="color: #94a3b8;">No tags found in library.</div>';
+                }
+                
+                container.style.display = 'block';
+                log(`Found ${data.tags.length} unique tags`, 'info');
+            } catch (err) {
+                log(`Error loading tags: ${err.message}`, 'error');
+            }
+        });
+        
+        document.getElementById('btn-view-custom-fields').addEventListener('click', async () => {
+            if (!libraryId) return;
+            
+            try {
+                const response = await fetch(`/api/library/${libraryId}/custom_field_keys`);
+                const data = await response.json();
+                
+                const container = document.getElementById('custom-fields-list');
+                container.innerHTML = '';
+                
+                if (data.custom_field_keys && data.custom_field_keys.length > 0) {
+                    let html = '<div style="color: #cbd5e1; margin-bottom: 10px;"><strong>Custom Field Keys:</strong></div>';
+                    html += '<div style="display: grid; gap: 5px;">';
+                    
+                    data.custom_field_keys.forEach(key => {
+                        html += `<div style="color: #94a3b8; padding: 8px; background: rgba(139, 92, 246, 0.1); border-radius: 4px;">📝 ${key}</div>`;
+                    });
+                    
+                    html += '</div>';
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<div style="color: #94a3b8;">No custom fields found in library.</div>';
+                }
+                
+                container.style.display = 'block';
+                log(`Found ${data.custom_field_keys.length} custom field keys`, 'info');
+            } catch (err) {
+                log(`Error loading custom fields: ${err.message}`, 'error');
+            }
+        });
+        
+        function closeEditMetadataModal() {
+            document.getElementById('edit-metadata-modal').classList.remove('visible');
+        }
+        
+        // ===== Playlist Similarity Functions =====
+        
+        document.getElementById('btn-find-similar').addEventListener('click', async () => {
+            if (!libraryId) {
+                log('No library loaded', 'error');
+                return;
+            }
+            
+            // Get all playlists
+            const playlists = Object.values(currentLibrary?.playlists || {});
+            
+            if (playlists.length === 0) {
+                log('No playlists available for comparison', 'error');
+                return;
+            }
+            
+            // For now, use the first playlist as the source
+            const sourcePlaylist = playlists[0];
+            
+            if (!sourcePlaylist || !sourcePlaylist.id) {
+                log('Invalid playlist selected', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(
+                    `/api/library/${libraryId}/playlists/${sourcePlaylist.id}/similar?min_similarity=0.3`
+                );
+                const data = await response.json();
+                
+                const container = document.getElementById('similarity-results');
+                container.innerHTML = '';
+                
+                let html = '<div style="color: #cbd5e1; margin-bottom: 10px;">';
+                html += `<strong>Similar to: ${data.source_playlist_name}</strong><br>`;
+                html += `<span style="color: #94a3b8; font-size: 0.9em;">`;
+                html += `${data.source_track_count} tracks`;
+                if (data.source_characteristics.avg_bpm) {
+                    html += ` | Avg BPM: ${data.source_characteristics.avg_bpm}`;
+                }
+                if (data.source_characteristics.genres && data.source_characteristics.genres.length > 0) {
+                    html += ` | Genres: ${data.source_characteristics.genres.join(', ')}`;
+                }
+                if (data.source_characteristics.keys && data.source_characteristics.keys.length > 0) {
+                    html += ` | Keys: ${data.source_characteristics.keys.join(', ')}`;
+                }
+                html += '</span></div>';
+                
+                if (data.similar_playlists && data.similar_playlists.length > 0) {
+                    html += '<div style="margin-top: 15px; display: grid; gap: 10px;">';
+                    
+                    data.similar_playlists.forEach(playlist => {
+                        const similarityPercent = Math.round(playlist.similarity_score * 100);
+                        html += '<div style="padding: 12px; background: rgba(139, 92, 246, 0.1); border-radius: 6px; border-left: 3px solid rgba(139, 92, 246, 0.5);">';
+                        html += `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">`;
+                        html += `<span style="color: #e2e8f0; font-weight: 500;">${playlist.playlist_name}</span>`;
+                        html += `<span style="color: #a78bfa; font-weight: bold;">${similarityPercent}% similar</span>`;
+                        html += '</div>';
+                        
+                        html += '<div style="color: #94a3b8; font-size: 0.85em;">';
+                        html += `${playlist.track_count} tracks`;
+                        if (playlist.avg_bpm) {
+                            html += ` | BPM: ${playlist.avg_bpm}`;
+                        }
+                        if (playlist.bpm_difference) {
+                            html += ` (±${playlist.bpm_difference})`;
+                        }
+                        html += '</div>';
+                        
+                        if (playlist.common_genres && playlist.common_genres.length > 0) {
+                            html += '<div style="color: #94a3b8; font-size: 0.85em; margin-top: 3px;">';
+                            html += `Common genres: ${playlist.common_genres.join(', ')}`;
+                            html += '</div>';
+                        }
+                        
+                        if (playlist.common_keys && playlist.common_keys.length > 0) {
+                            html += '<div style="color: #94a3b8; font-size: 0.85em; margin-top: 3px;">';
+                            html += `Common keys: ${playlist.common_keys.join(', ')}`;
+                            html += '</div>';
+                        }
+                        
+                        html += '</div>';
+                    });
+                    
+                    html += '</div>';
+                } else {
+                    html += '<div style="color: #94a3b8; margin-top: 10px;">No similar playlists found.</div>';
+                }
+                
+                container.innerHTML = html;
+                container.style.display = 'block';
+                
+                log(`Found ${data.total_found} similar playlist(s)`, 'success');
+            } catch (err) {
+                log(`Error finding similar playlists: ${err.message}`, 'error');
+            }
+        });
+        
+        // Try to load saved library on page load
+        loadLibraryState();
     </script>
 </body>
 </html>
