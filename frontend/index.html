@@ -910,7 +910,37 @@
                 
                 <!-- Tools Tab -->
                 <div id="tab-tools" class="tab-content">
-                    <p style="color: #94a3b8; text-align: center; padding: 40px;">Tools and utilities coming soon...</p>
+                    <div style="display: grid; gap: 20px;">
+                        <!-- Folder Management Section -->
+                        <div style="padding: 20px; background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 8px;">
+                            <h3 style="color: #a78bfa; margin-bottom: 15px;">📁 Playlist Folders</h3>
+                            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                <button id="btn-create-folder" class="btn-secondary">
+                                    <span>➕</span> Create Folder
+                                </button>
+                                <button id="btn-view-folders" class="btn-secondary">
+                                    <span>👁️</span> View Hierarchy
+                                </button>
+                            </div>
+                            <div id="folder-hierarchy" style="margin-top: 15px; display: none; max-height: 400px; overflow-y: auto;"></div>
+                        </div>
+                        
+                        <!-- Custom Metadata Section -->
+                        <div style="padding: 20px; background: rgba(139, 92, 246, 0.05); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 8px;">
+                            <h3 style="color: #a78bfa; margin-bottom: 15px;">🏷️ Custom Metadata & Tags</h3>
+                            <p style="color: #94a3b8; margin-bottom: 15px;">Add custom fields and tags to your tracks for better organization.</p>
+                            <div style="display: flex; gap: 10px;">
+                                <button id="btn-view-tags" class="btn-secondary">
+                                    <span>🔖</span> View All Tags
+                                </button>
+                                <button id="btn-view-custom-fields" class="btn-secondary">
+                                    <span>📝</span> View Custom Fields
+                                </button>
+                            </div>
+                            <div id="tags-list" style="margin-top: 15px; display: none;"></div>
+                            <div id="custom-fields-list" style="margin-top: 15px; display: none;"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1061,6 +1091,44 @@
                     <h3 class="chart-title">Genre Distribution</h3>
                     <div id="genre-chart" class="bar-chart"></div>
                 </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Create Folder Modal -->
+    <div id="create-folder-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>➕ Create Folder</h2>
+                <button class="close-modal" onclick="closeCreateFolderModal()">Close</button>
+            </div>
+            <div style="margin-top: 20px;">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; color: #cbd5e1;">Folder Name:</label>
+                    <input type="text" id="folder-name" placeholder="My Folder" style="width: 100%; padding: 10px; border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; background: rgba(15, 23, 42, 0.6); color: #e2e8f0;">
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 5px; color: #cbd5e1;">Parent Folder (optional):</label>
+                    <select id="folder-parent" style="width: 100%; padding: 10px; border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; background: rgba(15, 23, 42, 0.6); color: #e2e8f0;">
+                        <option value="">Root Level</option>
+                    </select>
+                </div>
+                <button onclick="createFolder()" class="btn-primary" style="width: 100%; justify-content: center;">
+                    <span>➕</span> Create Folder
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Edit Track Metadata Modal -->
+    <div id="edit-metadata-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🏷️ Edit Track Metadata</h2>
+                <button class="close-modal" onclick="closeEditMetadataModal()">Close</button>
+            </div>
+            <div id="metadata-editor" style="margin-top: 20px;">
+                <!-- Will be populated dynamically -->
             </div>
         </div>
     </div>
@@ -1948,6 +2016,214 @@
                     break;
             }
         });
+        
+        
+        // ===== Folder Management Functions =====
+        
+        let allFolders = [];
+        
+        async function loadFolders() {
+            if (!libraryId) return;
+            try {
+                const response = await fetch(`/api/library/${libraryId}/folders`);
+                const data = await response.json();
+                return data;
+            } catch (err) {
+                log(`Error loading folders: ${err.message}`, 'error');
+                return null;
+            }
+        }
+        
+        function populateFolderDropdown() {
+            const select = document.getElementById('folder-parent');
+            if (!select) return;
+            
+            // Keep root option
+            select.innerHTML = '<option value="">Root Level</option>';
+            
+            // Add all folders
+            function addFoldersToSelect(folders, indent = '') {
+                folders.forEach(folder => {
+                    const option = document.createElement('option');
+                    option.value = folder.id;
+                    option.textContent = indent + folder.name;
+                    select.appendChild(option);
+                    
+                    // Add subfolders recursively
+                    if (folder.subfolders && folder.subfolders.length > 0) {
+                        addFoldersToSelect(folder.subfolders, indent + '  ');
+                    }
+                });
+            }
+            
+            loadFolders().then(data => {
+                if (data && data.folders) {
+                    addFoldersToSelect(data.folders);
+                }
+            });
+        }
+        
+        document.getElementById('btn-create-folder').addEventListener('click', () => {
+            populateFolderDropdown();
+            document.getElementById('create-folder-modal').classList.add('visible');
+        });
+        
+        function closeCreateFolderModal() {
+            document.getElementById('create-folder-modal').classList.remove('visible');
+        }
+        
+        async function createFolder() {
+            const name = document.getElementById('folder-name').value.trim();
+            if (!name) {
+                log('Folder name is required', 'error');
+                return;
+            }
+            
+            const parentId = document.getElementById('folder-parent').value || null;
+            
+            try {
+                const response = await fetch(`/api/library/${libraryId}/folders`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        name: name,
+                        parent_id: parentId
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to create folder');
+                }
+                
+                const data = await response.json();
+                log(`Folder "${name}" created successfully`, 'success');
+                closeCreateFolderModal();
+                
+                // Clear form
+                document.getElementById('folder-name').value = '';
+                document.getElementById('folder-parent').value = '';
+            } catch (err) {
+                log(`Error creating folder: ${err.message}`, 'error');
+            }
+        }
+        
+        document.getElementById('btn-view-folders').addEventListener('click', async () => {
+            const data = await loadFolders();
+            if (!data) return;
+            
+            const container = document.getElementById('folder-hierarchy');
+            container.innerHTML = '';
+            
+            function renderFolderTree(folders, indent = 0) {
+                let html = '';
+                folders.forEach(folder => {
+                    const indentStr = '  '.repeat(indent);
+                    html += `<div style="margin: 5px 0; padding-left: ${indent * 20}px;">`;
+                    html += `<span style="color: #a78bfa;">📁 ${folder.name}</span>`;
+                    
+                    // Show playlists in folder
+                    if (folder.playlists && folder.playlists.length > 0) {
+                        folder.playlists.forEach(playlist => {
+                            html += `<div style="padding-left: 20px; color: #94a3b8; margin: 3px 0;">├─ 🎵 ${playlist.name}</div>`;
+                        });
+                    }
+                    
+                    html += '</div>';
+                    
+                    // Render subfolders
+                    if (folder.subfolders && folder.subfolders.length > 0) {
+                        html += renderFolderTree(folder.subfolders, indent + 1);
+                    }
+                });
+                return html;
+            }
+            
+            let html = '<div style="color: #cbd5e1; margin-bottom: 10px;"><strong>Folder Hierarchy:</strong></div>';
+            
+            if (data.folders && data.folders.length > 0) {
+                html += renderFolderTree(data.folders);
+            } else {
+                html += '<div style="color: #94a3b8;">No folders created yet.</div>';
+            }
+            
+            if (data.playlists && data.playlists.length > 0) {
+                html += '<div style="margin-top: 15px; color: #cbd5e1;"><strong>Root Playlists:</strong></div>';
+                data.playlists.forEach(playlist => {
+                    html += `<div style="color: #94a3b8; margin: 3px 0;">🎵 ${playlist.name}</div>`;
+                });
+            }
+            
+            container.innerHTML = html;
+            container.style.display = 'block';
+        });
+        
+        // ===== Custom Metadata and Tags Functions =====
+        
+        document.getElementById('btn-view-tags').addEventListener('click', async () => {
+            if (!libraryId) return;
+            
+            try {
+                const response = await fetch(`/api/library/${libraryId}/tags`);
+                const data = await response.json();
+                
+                const container = document.getElementById('tags-list');
+                container.innerHTML = '';
+                
+                if (data.tags && data.tags.length > 0) {
+                    let html = '<div style="color: #cbd5e1; margin-bottom: 10px;"><strong>All Tags:</strong></div>';
+                    html += '<div style="display: flex; flex-wrap: wrap; gap: 8px;">';
+                    
+                    data.tags.forEach(tag => {
+                        html += `<span style="background: rgba(139, 92, 246, 0.2); color: #a78bfa; padding: 5px 12px; border-radius: 15px; font-size: 0.9em;">${tag}</span>`;
+                    });
+                    
+                    html += '</div>';
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<div style="color: #94a3b8;">No tags found in library.</div>';
+                }
+                
+                container.style.display = 'block';
+                log(`Found ${data.tags.length} unique tags`, 'info');
+            } catch (err) {
+                log(`Error loading tags: ${err.message}`, 'error');
+            }
+        });
+        
+        document.getElementById('btn-view-custom-fields').addEventListener('click', async () => {
+            if (!libraryId) return;
+            
+            try {
+                const response = await fetch(`/api/library/${libraryId}/custom_field_keys`);
+                const data = await response.json();
+                
+                const container = document.getElementById('custom-fields-list');
+                container.innerHTML = '';
+                
+                if (data.custom_field_keys && data.custom_field_keys.length > 0) {
+                    let html = '<div style="color: #cbd5e1; margin-bottom: 10px;"><strong>Custom Field Keys:</strong></div>';
+                    html += '<div style="display: grid; gap: 5px;">';
+                    
+                    data.custom_field_keys.forEach(key => {
+                        html += `<div style="color: #94a3b8; padding: 8px; background: rgba(139, 92, 246, 0.1); border-radius: 4px;">📝 ${key}</div>`;
+                    });
+                    
+                    html += '</div>';
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<div style="color: #94a3b8;">No custom fields found in library.</div>';
+                }
+                
+                container.style.display = 'block';
+                log(`Found ${data.custom_field_keys.length} custom field keys`, 'info');
+            } catch (err) {
+                log(`Error loading custom fields: ${err.message}`, 'error');
+            }
+        });
+        
+        function closeEditMetadataModal() {
+            document.getElementById('edit-metadata-modal').classList.remove('visible');
+        }
         
         // Try to load saved library on page load
         loadLibraryState();

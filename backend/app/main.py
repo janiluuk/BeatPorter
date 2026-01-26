@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from pathlib import Path
 import re
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import time
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
@@ -178,6 +178,9 @@ def list_tracks(
             "key": t.key,
             "year": t.year,
             "duration_seconds": t.duration_seconds,
+            "genre": t.genre,
+            "custom_fields": t.custom_fields,
+            "tags": t.tags,
         }
         for t in tracks
     ]
@@ -1103,4 +1106,267 @@ def global_search(library_id: str, q: str):
     return {
         "query": q,
         "results": results,
+    }
+
+
+# ===== Folder Management Endpoints =====
+
+class CreateFolderRequest(BaseModel):
+    name: str
+    parent_id: Optional[str] = None
+
+
+class CreateFolderResponse(BaseModel):
+    folder_id: str
+    name: str
+    parent_id: Optional[str]
+
+
+@app.post("/api/library/{library_id}/folders", response_model=CreateFolderResponse)
+def create_folder(library_id: str, request: CreateFolderRequest):
+    """Create a new playlist folder."""
+    lib = get_library_or_404(library_id)
+    
+    # Validate parent_id if provided
+    if request.parent_id and request.parent_id not in lib.folders:
+        raise HTTPException(status_code=404, detail="Parent folder not found")
+    
+    folder_id = lib.add_folder(request.name, request.parent_id)
+    
+    return CreateFolderResponse(
+        folder_id=folder_id,
+        name=request.name,
+        parent_id=request.parent_id
+    )
+
+
+@app.get("/api/library/{library_id}/folders")
+def get_folder_hierarchy(library_id: str):
+    """Get the complete folder hierarchy with playlists."""
+    lib = get_library_or_404(library_id)
+    return lib.get_folder_hierarchy()
+
+
+@app.delete("/api/library/{library_id}/folders/{folder_id}")
+def delete_folder(library_id: str, folder_id: str):
+    """Delete a folder (playlists are moved to parent or root)."""
+    lib = get_library_or_404(library_id)
+    
+    if folder_id not in lib.folders:
+        raise HTTPException(status_code=404, detail="Folder not found")
+    
+    folder = lib.folders[folder_id]
+    parent_id = folder.parent_id
+    
+    # Move playlists to parent folder (or root)
+    for pid in folder.playlist_ids:
+        if pid in lib.playlists:
+            lib.playlists[pid].folder_id = parent_id
+            if parent_id and parent_id in lib.folders:
+                lib.folders[parent_id].playlist_ids.append(pid)
+    
+    # Move subfolders to parent folder (or root)
+    for subfolder_id in folder.subfolder_ids:
+        if subfolder_id in lib.folders:
+            lib.folders[subfolder_id].parent_id = parent_id
+            if parent_id and parent_id in lib.folders:
+                lib.folders[parent_id].subfolder_ids.append(subfolder_id)
+    
+    # Remove folder from parent's subfolder list
+    if parent_id and parent_id in lib.folders:
+        parent_folder = lib.folders[parent_id]
+        if folder_id in parent_folder.subfolder_ids:
+            parent_folder.subfolder_ids.remove(folder_id)
+    
+    # Delete the folder
+    del lib.folders[folder_id]
+    
+    return {"status": "deleted", "folder_id": folder_id}
+
+
+class MoveFolderRequest(BaseModel):
+    new_parent_id: Optional[str] = None
+
+
+@app.post("/api/library/{library_id}/folders/{folder_id}/move")
+def move_folder(library_id: str, folder_id: str, request: MoveFolderRequest):
+    """Move a folder to a different parent folder."""
+    lib = get_library_or_404(library_id)
+    
+    if folder_id not in lib.folders:
+        raise HTTPException(status_code=404, detail="Folder not found")
+    
+    # Validate new parent exists
+    if request.new_parent_id and request.new_parent_id not in lib.folders:
+        raise HTTPException(status_code=404, detail="Target parent folder not found")
+    
+    # Check for circular reference
+    if request.new_parent_id:
+        current = request.new_parent_id
+        while current:
+            if current == folder_id:
+                raise HTTPException(status_code=400, detail="Cannot move folder into its own subfolder")
+            current = lib.folders[current].parent_id if current in lib.folders else None
+    
+    folder = lib.folders[folder_id]
+    old_parent_id = folder.parent_id
+    
+    # Remove from old parent's subfolder list
+    if old_parent_id and old_parent_id in lib.folders:
+        old_parent = lib.folders[old_parent_id]
+        if folder_id in old_parent.subfolder_ids:
+            old_parent.subfolder_ids.remove(folder_id)
+    
+    # Add to new parent's subfolder list
+    if request.new_parent_id and request.new_parent_id in lib.folders:
+        new_parent = lib.folders[request.new_parent_id]
+        if folder_id not in new_parent.subfolder_ids:
+            new_parent.subfolder_ids.append(folder_id)
+    
+    # Update folder's parent
+    folder.parent_id = request.new_parent_id
+    
+    return {"status": "moved", "folder_id": folder_id, "new_parent_id": request.new_parent_id}
+
+
+class MovePlaylistToFolderRequest(BaseModel):
+    folder_id: Optional[str] = None
+
+
+@app.post("/api/library/{library_id}/playlists/{playlist_id}/move")
+def move_playlist_to_folder(library_id: str, playlist_id: str, request: MovePlaylistToFolderRequest):
+    """Move a playlist to a different folder."""
+    lib = get_library_or_404(library_id)
+    
+    if playlist_id not in lib.playlists:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    
+    # Validate folder exists
+    if request.folder_id and request.folder_id not in lib.folders:
+        raise HTTPException(status_code=404, detail="Target folder not found")
+    
+    playlist = lib.playlists[playlist_id]
+    old_folder_id = playlist.folder_id
+    
+    # Remove from old folder's playlist list
+    if old_folder_id and old_folder_id in lib.folders:
+        old_folder = lib.folders[old_folder_id]
+        if playlist_id in old_folder.playlist_ids:
+            old_folder.playlist_ids.remove(playlist_id)
+    
+    # Add to new folder's playlist list
+    if request.folder_id and request.folder_id in lib.folders:
+        new_folder = lib.folders[request.folder_id]
+        if playlist_id not in new_folder.playlist_ids:
+            new_folder.playlist_ids.append(playlist_id)
+    
+    # Update playlist's folder
+    playlist.folder_id = request.folder_id
+    
+    return {"status": "moved", "playlist_id": playlist_id, "folder_id": request.folder_id}
+
+
+# ===== Custom Metadata and Tags Endpoints =====
+
+class UpdateCustomFieldsRequest(BaseModel):
+    custom_fields: dict  # Using dict instead of Dict[str, Any] for Pydantic 1.x compatibility
+    
+    class Config:
+        arbitrary_types_allowed = True
+
+
+class UpdateTagsRequest(BaseModel):
+    tags: List[str]
+
+
+@app.post("/api/library/{library_id}/tracks/{track_id}/custom_fields")
+def update_track_custom_fields(library_id: str, track_id: str, request: UpdateCustomFieldsRequest):
+    """Update custom metadata fields for a track."""
+    lib = get_library_or_404(library_id)
+    track = lib.get_track(track_id)
+    
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    
+    # Update custom fields (merge with existing)
+    track.custom_fields.update(request.custom_fields)
+    
+    return {
+        "track_id": track_id,
+        "custom_fields": track.custom_fields
+    }
+
+
+@app.get("/api/library/{library_id}/tracks/{track_id}/custom_fields")
+def get_track_custom_fields(library_id: str, track_id: str):
+    """Get custom metadata fields for a track."""
+    lib = get_library_or_404(library_id)
+    track = lib.get_track(track_id)
+    
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    
+    return {
+        "track_id": track_id,
+        "custom_fields": track.custom_fields
+    }
+
+
+@app.post("/api/library/{library_id}/tracks/{track_id}/tags")
+def update_track_tags(library_id: str, track_id: str, request: UpdateTagsRequest):
+    """Update tags for a track."""
+    lib = get_library_or_404(library_id)
+    track = lib.get_track(track_id)
+    
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    
+    track.tags = request.tags
+    
+    return {
+        "track_id": track_id,
+        "tags": track.tags
+    }
+
+
+@app.get("/api/library/{library_id}/tracks/{track_id}/tags")
+def get_track_tags(library_id: str, track_id: str):
+    """Get tags for a track."""
+    lib = get_library_or_404(library_id)
+    track = lib.get_track(track_id)
+    
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    
+    return {
+        "track_id": track_id,
+        "tags": track.tags
+    }
+
+
+@app.get("/api/library/{library_id}/tags")
+def get_all_tags(library_id: str):
+    """Get all unique tags used in the library."""
+    lib = get_library_or_404(library_id)
+    
+    all_tags = set()
+    for track in lib.tracks:
+        all_tags.update(track.tags)
+    
+    return {
+        "tags": sorted(list(all_tags))
+    }
+
+
+@app.get("/api/library/{library_id}/custom_field_keys")
+def get_custom_field_keys(library_id: str):
+    """Get all custom field keys used in the library."""
+    lib = get_library_or_404(library_id)
+    
+    all_keys = set()
+    for track in lib.tracks:
+        all_keys.update(track.custom_fields.keys())
+    
+    return {
+        "custom_field_keys": sorted(list(all_keys))
     }
